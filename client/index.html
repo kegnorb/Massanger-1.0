@@ -6,8 +6,30 @@
   </head>
   <link rel="stylesheet" type="text/css" href="styles.css">
   <body>
-    <h1>Hello WebSockets world!</h1>
-    <button onclick="executeSend ()">Send Hello to server!</button>
+    <div id="app">
+      <div class="top-bar">
+        <div class="app-name">Massanger-1.0</div>
+        <div class="search-box">search-box</div>
+        <div class="user-options">user-options</div>
+      </div>
+
+      <div class="main-container">
+        <div class="side-menu">side-menu</div>
+        <div class="conversation-list">conversation-list</div>
+
+        <div class="chat-area">
+          <div class="message-display"></div>
+          <div class="message-input">
+            <textarea id="messageInput" placeholder="Type a message..."></textarea>
+            <button id="sendButton" onclick="executeSend ()">Send</button>
+          </div>
+        </div><!--chat-area-->
+
+        <div class="extra-info">extra-info</div>
+      </div>
+
+    </div>
+
     <script src="client.js"></script>
   </body>
 </html>

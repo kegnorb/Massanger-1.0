@@ -1,15 +1,16 @@
 const ws = new WebSocket('ws://localhost:8081');
+var newMessage;
+
 
 function executeSend () {
-  console.log ('Sending Hello to server!');
-  ws.send('Hello from client!');
+  newMessage = document.getElementById('messageInput').value;
+  console.log ('Sending message to server...');
+  ws.send(newMessage);
+  document.getElementById("messageInput").value = "";
 }
 
-//ws.onopen = () => {
-//  ws.send('Hello from client!');
-//};
 
 ws.onmessage = event => {
-  console.log('Server says: ', event.data);
-  alert ('Server says: ' + event.data);
+  console.log('Response from server:\n ', event.data);
+  //alert ('Response from server:\n' + event.data);
 };

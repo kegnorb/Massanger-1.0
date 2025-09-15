@@ -1,10 +1,148 @@
 body {
+    margin: 0;
+    padding: 0;
     background-color: rgb(40, 41, 42);
 }
 
-h1 {
-    color: rgb(126, 128, 174);
-    text-align: center;
+* {
+    box-sizing: border-box;
+}
+
+#app {
+    border: 1px solid red;
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: rgb(216, 216, 216);
+    font-family: Arial, sans-serif;
+    max-width: 1920px;
+
+}
+
+.top-bar {
+    border: 1px solid green;
+    width: 100%;
+    height: 50px;
+    /*background-color: rgb(52, 101, 138);*/
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    /*padding: 0 20px;*/
+}
+
+.app-name {
+    border: 1px solid teal;
+    display: flex;
+    width: 200px;
+    height: 100%;
+    align-items: center;
+    padding-left: 20px;
+}
+
+.user-options {
+    border: 1px solid pink;
+    display: flex;
+    width: 400px;
+    height: 100%;
+    align-items: center;
+    padding: 0 20px;
+}
+
+.search-box {
+    border: 1px solid brown;
+    display: flex;
+    width: calc(100% - 600px);
+    height: 100%;
+    align-items: center;
+    padding-left: 20px;
+}
+
+.main-container {
+    border: 1px solid blue;
+    width: 100%;
+    height: calc(100vh - 50px);
+    margin-top: 50px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    /*padding: 0 20px;*/
+}
+
+.side-menu {
+    border: 1px solid yellow;
+    width: 300px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 20px;
+}
+
+.conversation-list {
+    border: 1px solid grey;
+    width: 300px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 20px;
+}
+
+.chat-area {
+    border: 1px solid purple;
+    flex: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 20px;
+}
+
+.message-display {
+    border: 3px solid lightblue;
+    width: 100%;
+    height: calc(100% - 100px);
+    overflow-y: auto;
+    margin-bottom: 10px;
+    padding: 10px;
+}
+
+.message-input {
+    border: 1px solid lightgreen;
+    width: 100%;
+    height: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#messageInput {
+    width: 90%;
+    height: 50px;
+    font-size: 16px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    background-color: rgb(40, 41, 42);
+    color: white;
+}
+
+.extra-info {
+    border: 1px solid orange;
+    width: 400px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 20px;
 }
 
 button {

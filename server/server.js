@@ -9,18 +9,13 @@ const server = http.createServer(app);
 // Serve static files from the client folder
 app.use(express.static(path.join(__dirname, '../client')));
 
-// Optionally, serve a specific HTML file for '/'
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/index.html'));
-});
-
 // Attach WebSocket server to the same HTTP server
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', ws => {
   ws.on('message', message => {
-    console.log('received:', message);
-    ws.send('Acknowledged: ' + message);
+    console.log('Message received:\n', message);
+    ws.send('Message received:\n' + message);
   });
 });
 
