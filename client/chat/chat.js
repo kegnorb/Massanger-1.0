@@ -1,9 +1,18 @@
+const username = localStorage.getItem('username');
+if (!username) {
+  document.body.innerHTML = '<h2>Error: You must log in first.</h2>';
+  // Optionally, redirect to login page:
+  // window.location.href = 'login.html';
+  throw new Error('User not logged in');
+}
+
+
 const ws = new WebSocket('ws://localhost:8081');
 var newMessageContent;
 
 
 class Message {
-  constructor({ id, content, timestamp, sender, status = 'sent' }) {
+  constructor({ id, content, timestamp, sender=username, status = 'sent' }) {
     this.id = id;
     this.content = content;
     this.timestamp = timestamp;
@@ -19,7 +28,6 @@ function executeSend() {
     id: Date.now(),
     content: newMessageContent,
     timestamp: new Date().toISOString(),
-    sender: 'Client1'
   });
 
   const messageJSON = JSON.stringify(message);
