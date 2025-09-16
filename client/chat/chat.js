@@ -11,27 +11,23 @@ const ws = new WebSocket('ws://localhost:8081');
 var newMessageContent;
 
 
-class Message {
-  constructor({ id, content, timestamp, sender=username, status = 'sent' }) {
-    this.id = id;
-    this.content = content;
-    this.timestamp = timestamp;
-    this.sender = sender;
-    this.status = status;
-  }
+// Factory function to create payloads
+function createPayload(type, props) {
+  return { type, ...props };
 }
 
 
 function executeSend() {
   newMessageContent = document.getElementById('messageInput').value;
-  const message = new Message({
+
+  const chatPayload = createPayload('chat', {
+    sender: username,
     id: Date.now(),
     content: newMessageContent,
     timestamp: new Date().toISOString(),
   });
 
-  const messageJSON = JSON.stringify(message);
-
+  const messageJSON = JSON.stringify(chatPayload);
 
   console.log('Sending message to server...');
   ws.send(messageJSON);
@@ -41,19 +37,23 @@ function executeSend() {
 
 
 ws.onmessage = event => {
-  console.log('Response from server:\n ', event.data);
+  console.log('Payload from server:\n ', event.data);
   const response = JSON.parse(event.data);
-  const sender = response.sender;
-  const messageDisplay = document.getElementsByClassName('message-display')[0];
-  const messageBubble = document.createElement('div');
 
-  //logic for distinguishing own and other messages
-  if (sender === 'Client1') {
-    messageBubble.classList.add('message-bubble-own');
-  } else {
-    messageBubble.classList.add('message-bubble-other');
-  }
+  if (response.type === 'chat') {
+    const sender = response.sender;
+    const messageDisplay = document.getElementsByClassName('message-display')[0];
+    const messageBubble = document.createElement('div');
+
+    //logic for distinguishing own and other messages
+    if (sender === username) {
+      messageBubble.classList.add('message-bubble-own');
+    } else {
+      messageBubble.classList.add('message-bubble-other');
+    }
   
-  messageBubble.textContent = `[${response.timestamp}] ${response.sender}: ${response.content} (Status: ${response.status})`;
-  messageDisplay.appendChild(messageBubble);
+    messageBubble.textContent = `[${response.timestamp}] ${response.sender}: ${response.content} (Status: ${response.status})`;
+    messageDisplay.appendChild(messageBubble);
+  }
+  // ...handle other response types for status updates, or errors, etc.
 };

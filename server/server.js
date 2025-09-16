@@ -15,19 +15,28 @@ app.use(express.static(path.join(__dirname, '../client')));
 
 // Attach WebSocket server to the same HTTP server
 const wss = new WebSocket.Server({ server });
+const clients = new Map();
 
 wss.on('connection', ws => {
-  ws.on('message', messageJSON => {
-    console.log('Message received:\n', messageJSON);
-    let message;
+  ws.on('message', payloadJSON => {
+    //console.log('Payload received:\n', payloadJSON);
+
+    let payload;
+
     try {
-      message = JSON.parse(messageJSON); // Parse incoming string to object
+      payload = JSON.parse(payloadJSON); // Parse incoming string to object
     } catch (e) {
-      console.error('Invalid JSON:', messageJSON);
+      console.error('Invalid JSON:', payloadJSON);
       return;
     }
-    // Optionally modify message object here (e.g., add server timestamp)
-    ws.send(JSON.stringify(message)); // Send back as proper JSON string
+
+    if (payload.type === 'chat') {
+      // handle chat message
+    }
+    // ...other types
+
+    // Optionally modify payload object here (e.g., add server timestamp)
+    ws.send(JSON.stringify(payload)); // Send back as proper JSON string
   });
 });
 
