@@ -15,9 +15,7 @@ function executeLogin() {
   })
   .then(res => res.json())  // wait for JSON response from server
   .then(data => {
-    if (data.token) { // on success, store token and username then redirect to chat
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('username', username);
+    if (data.success) { // on success, redirect to chat
       window.location.href = '../chat/chat.html';
     } else {
       alert(data.error || 'Login failed');

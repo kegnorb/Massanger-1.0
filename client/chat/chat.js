@@ -1,17 +1,8 @@
-const username = localStorage.getItem('username');
-const token = localStorage.getItem('token');
 let isAuthenticated = false;
-
-// Check if user is logged in
-if (!username || !token) {
-  document.body.innerHTML = '<h2>Error: You must log in first.</h2>';
-  // Optionally, redirect to login page:
-  // window.location.href = 'login.html';
-  throw new Error('User not logged in');
-}
+let username = null;
+var newMessageContent;
 
 const ws = new WebSocket('ws://localhost:8081');
-var newMessageContent;
 
 
 
@@ -23,6 +14,11 @@ function createPayload(type, props) {
 
 
 function executeSend() {
+  if (!isAuthenticated) {
+    alert('You must be logged in to send messages.');
+    return;
+  }
+  
   newMessageContent = document.getElementById('messageInput').value;
 
   const chatPayload = createPayload('chat', {
@@ -43,9 +39,8 @@ function executeSend() {
 
 
 ws.onopen = () => {
-  // Send handshake/auth payload with token
-  const authPayload = createPayload('auth', { token });
-  ws.send(JSON.stringify(authPayload));
+  console.log('WebSocket connection established. Authenticating...');
+  // Authentication will be handled via cookies automatically sent by the browser
 }; //ws.onopen
 
 
@@ -57,7 +52,8 @@ ws.onmessage = event => {
   if (response.type === 'auth') {
     if (response.status === 'success') {
       isAuthenticated = true;
-      console.log(`Authenticated as ${response.username}`);
+      username = response.username;
+      console.log(`Authenticated as ${username}`);
       // Load chat UI and previous messages in later versions
     } else {
       alert('Authentication failed. Please log in again.');
