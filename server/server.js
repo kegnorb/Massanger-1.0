@@ -17,10 +17,11 @@ app.get('/', (req, res) => {
 // Serve static files from the client folder
 app.use(express.static(path.join(__dirname, '../client')));
 
+app.use(express.json());
+
 
 
 // HTTP authentication endpoint with dummy logic
-app.use(express.json());
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
 
@@ -31,21 +32,66 @@ app.post('/api/login', (req, res) => {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
 
-  // Create JWT token
-  const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: '1h' });
-  console.log('[DBG]: Token generated:\n', token);
+  // Access token: 15 minutes
+  const accessToken = jwt.sign({ username }, SECRET_KEY, { expiresIn: '15m' });
+  // Refresh token: 90 days
+  const refreshToken = jwt.sign({ username }, SECRET_KEY, { expiresIn: '90d' });
+  console.log('[DBG]: access token generated:\n', accessToken);
+  console.log('[DBG]: refresh token generated:\n', refreshToken);
 
   // Set cookie options
-  res.setHeader('Set-Cookie', cookie.serialize('token', token, {
-    httpOnly: true,
-    // secure: true, // Uncomment when using HTTPS
-    sameSite: 'strict', // CSRF protection
-    maxAge: 60 * 60, // 1 hour expiry for the cookie containing the token
-    path: '/' // path is by default would be api/login, setting it to / so that it's sent with all requests including ws handshake
-  }));
+  res.setHeader('Set-Cookie', [
+    cookie.serialize('accessToken', accessToken, {
+      httpOnly: true,
+      // secure: true, // Uncomment when using HTTPS
+      sameSite: 'strict', // CSRF protection
+      maxAge: 1 * 60, // 1 hour expiry for the cookie containing the token
+      path: '/' // by default path would be 'api/login'. Setting it to '/' so that it's sent with all requests including ws handshake
+    }),
+    cookie.serialize('refreshToken', refreshToken, {
+      httpOnly: true,
+      // secure: true, // Uncomment when using HTTPS
+      sameSite: 'strict',
+      maxAge: 120,//90 * 24 * 60 * 60, // 90 days
+      path: '/'
+    })
+  ]);
 
   res.json({ success: true }); // Token is sent in the httpOnly cookie (in the header)
-});
+}); //app.post('/api/login' ...)
+
+
+
+// Token refresh endpoint
+app.post('/api/refresh', (req, res) => {
+  console.log('[DBG] Refresh token request received');
+
+  const cookies = cookie.parse(req.headers.cookie || '');
+  const refreshToken = cookies.refreshToken;
+
+  if (!refreshToken) {
+    return res.status(401).json({ error: 'No refresh token found' });
+  }
+
+  try {
+    const decoded = jwt.verify(refreshToken, SECRET_KEY);
+    const newAccessToken = jwt.sign({ username: decoded.username }, SECRET_KEY, { expiresIn: '15m' });
+    console.log('[DBG] New access token generated:\n', newAccessToken);
+    
+    // Set new access token in httpOnly cookie
+    res.setHeader('Set-Cookie', cookie.serialize('accessToken', newAccessToken, {
+      httpOnly: true,
+      // secure: true,
+      sameSite: 'strict',
+      maxAge: 15 * 60,
+      path: '/',
+    }));
+
+    res.json({ success: true });
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid or expired refresh token' });
+  }
+}); //app.post('/api/refresh' ...)
 
 
 
@@ -60,25 +106,25 @@ wss.on('connection', (ws, req) => {
 
   // Extract cookies from the handshake request
   const cookies = cookie.parse(req.headers.cookie || '');
-  const token = cookies.token;
+  const accessToken = cookies.accessToken;
 
-  console.log('[DBG] Token received:\n', token);
+  console.log('[DBG] access token received:\n', accessToken);
 
-  if (!token) {
-    ws.send(JSON.stringify({ type: 'auth', status: 'fail', error: 'No token found' }));
+  if (!accessToken) {
+    ws.send(JSON.stringify({ type: 'auth', status: 'fail', error: 'No access token found' }));
     ws.close();
     return;
   } 
 
-  // JWT handshake/auth
+  // access token (JWT) handshake/auth
   try {
-    const decoded = jwt.verify(token, SECRET_KEY);
+    const decoded = jwt.verify(accessToken, SECRET_KEY);
     ws.username = decoded.username
     clients.set(ws.username, ws);
     console.log(`User authenticated: ${ws.username}`);
     ws.send(JSON.stringify({ type: 'auth', status: 'success', username: ws.username }));
   } catch (err) {
-    ws.send(JSON.stringify({ type: 'auth', status: 'fail', error: 'Invalid token' }));
+    ws.send(JSON.stringify({ type: 'auth', status: 'fail', error: 'Invalid or expired access token' }));
     ws.close();
     return;
   }

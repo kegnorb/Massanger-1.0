@@ -18,7 +18,7 @@ function executeSend() {
     alert('You must be logged in to send messages.');
     return;
   }
-  
+
   newMessageContent = document.getElementById('messageInput').value;
 
   const chatPayload = createPayload('chat', {
@@ -79,3 +79,29 @@ ws.onmessage = event => {
   }
   // ...handle other response types for status updates, or errors, etc.
 }; //ws.onmessage
+
+
+
+ws.onclose = event => {
+  // If closed due to token expiry, try to refresh
+  // (You may want to check event.reason or use a flag)
+  if (event.reason !== 'token_expired') {
+    alert('WebSocket connection closed. Please log in again.');
+    window.location.href = '../user/login.html';
+    return;
+  }
+
+  console.log('Access token expired. Attempting to refresh...');
+
+  // Request for new access token to refresh endpoint
+  fetch('/api/refresh', { method: 'POST' })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        // Reconnect WebSocket (will be implemented later after some refactoring)
+      } else {
+        alert('Session expired. Please log in again.');
+        window.location.href = '../user/login.html';
+      }
+    });
+}; //ws.onclose
