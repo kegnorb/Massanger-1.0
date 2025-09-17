@@ -3,6 +3,9 @@ const path = require('path');
 const http = require('http');
 const WebSocket = require('ws');
 
+const jwt = require('jsonwebtoken');
+const SECRET_KEY = 'dummy_secret_key'; // Will be updated to a strong secret key later
+
 const app = express();
 const server = http.createServer(app);
 
@@ -18,13 +21,16 @@ app.use(express.static(path.join(__dirname, '../client')));
 // HTTP authentication endpoint with dummy logic
 app.use(express.json());
 app.post('/api/login', (req, res) => {
-  const { username } = req.body;
+  const { username, password } = req.body;
+  // Hardcoded password for testing
+  const HARDCODED_PASSWORD = 'pass123';
   // Check credentials later; for now, accept any username and no password
-  if (!username) {
+  if (!username || password !== HARDCODED_PASSWORD) {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
-  // Generate a dummy token (later JWT will be used)
-  const token = Buffer.from(username + Date.now()).toString('base64');
+  // Create JWT token
+  const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: '1h' });
+  console.log('[DBG]: Token generated:\n', token);
   res.json({ token });
 });
 
@@ -51,12 +57,12 @@ wss.on('connection', ws => {
       return;
     }
 
-    // Handle handshake/auth
+    // JWT handshake/auth
     if (payload.type === 'auth' && payload.token) {
-      // Dummy token check: decode username from token (for now)
       try {
-        const decoded = Buffer.from(payload.token, 'base64').toString();
-        ws.username = decoded.split(/[0-9]/)[0];
+        console.log('[DBG] Token received:\n', payload.token);
+        const decoded = jwt.verify(payload.token, SECRET_KEY);
+        ws.username = decoded.username
         console.log(`User authenticated: ${ws.username}`);
         clients.set(ws.username, ws);
         ws.send(JSON.stringify({ type: 'auth', status: 'success', username: ws.username }));
@@ -67,9 +73,10 @@ wss.on('connection', ws => {
       return;
     }
 
-    if (payload.type === 'chat') {
+    if (payload.type === 'chat' && ws.username) {
       // handle chat message
       // Optionally modify payload object here (e.g., add server timestamp)
+      payload.sender = ws.username;
       payload.timestamp = new Date().toISOString();
       payload.status = 'received';
       ws.send(JSON.stringify(payload)); // Send back as proper JSON string

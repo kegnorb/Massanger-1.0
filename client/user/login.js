@@ -1,8 +1,9 @@
 function executeLogin() {
   const username = document.getElementById('username').value.trim();
-
-  if (!username) {
-    alert('Please enter a valid username!');
+  const password = document.getElementById('password').value;
+  
+  if (!username || !password) {
+    alert('Please enter a valid username and password!');
     return;
   }
 
@@ -10,7 +11,7 @@ function executeLogin() {
   fetch('/api/login', { // sending the credentials here
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username })
+    body: JSON.stringify({ username, password })
   })
   .then(res => res.json())  // wait for JSON response from server
   .then(data => {

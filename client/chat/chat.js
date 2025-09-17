@@ -66,7 +66,7 @@ ws.onmessage = event => {
     }
   }
 
-  if (response.type === 'chat') {
+  if (response.type === 'chat' && isAuthenticated) {
     const sender = response.sender;
     const messageDisplay = document.getElementsByClassName('message-display')[0];
     const messageBubble = document.createElement('div');
