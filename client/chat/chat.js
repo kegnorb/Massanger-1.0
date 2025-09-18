@@ -1,5 +1,6 @@
 let isAuthenticated = false;
 let username = null;
+let refreshTimer; 
 var newMessageContent;
 
 const ws = new WebSocket('ws://localhost:8081');
@@ -16,6 +17,12 @@ function createPayload(type, props) {
 function executeSend() {
   if (!isAuthenticated) {
     alert('You must be logged in to send messages.');
+    return;
+  }
+
+  if (ws.readyState !== WebSocket.OPEN) {
+    alert('Connection lost. Please wait while reconnecting...');
+    // Later reconnection might be triggered here
     return;
   }
 
@@ -54,6 +61,26 @@ ws.onmessage = event => {
       isAuthenticated = true;
       username = response.username;
       console.log(`Authenticated as ${username}`);
+
+      // Proactive refresh timer setup
+      if (response.exp) {
+        console.log('[DBG] expiry timestamp received from server:', response.exp);
+        const expMs = response.exp * 1000; // JWT exp is in seconds
+        const nowMs = Date.now();
+        const timeUntilExpiry = expMs - nowMs;
+        console.log(`[DBG] Token expires in ${timeUntilExpiry / 1000} seconds`);
+        // Refresh 30 seconds before expiry
+        const refreshDelay = Math.max(timeUntilExpiry - 30000, 0);
+        console.log(`[DBG] Setting proactive refresh in ${refreshDelay / 1000} seconds`);
+
+        if (refreshTimer) clearTimeout(refreshTimer);
+
+        refreshTimer = setTimeout(() => {
+          console.log('[DBG] Proactively triggering refresh of access token...');
+          ws.send(JSON.stringify({ type: 'token-expired-close' }));
+        }, refreshDelay);
+      }
+
       // Load chat UI and previous messages in later versions
     } else {
       alert('Authentication failed. Please log in again.');
@@ -83,25 +110,20 @@ ws.onmessage = event => {
 
 
 ws.onclose = event => {
-  // If closed due to token expiry, try to refresh
-  // (You may want to check event.reason or use a flag)
-  if (event.reason !== 'token_expired') {
+  if (event.reason === 'token_expired') {
+    fetch('/api/refresh', { method: 'POST' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          console.log('Access token refreshed. Reconnecting WebSocket...');
+          // Reconnect WebSocket (will be implemented later after some refactoring)
+        } else {
+          alert('Session expired. Please log in again.');
+          window.location.href = '../user/login.html';
+        }
+      });
+  } else {
     alert('WebSocket connection closed. Please log in again.');
     window.location.href = '../user/login.html';
-    return;
   }
-
-  console.log('Access token expired. Attempting to refresh...');
-
-  // Request for new access token to refresh endpoint
-  fetch('/api/refresh', { method: 'POST' })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        // Reconnect WebSocket (will be implemented later after some refactoring)
-      } else {
-        alert('Session expired. Please log in again.');
-        window.location.href = '../user/login.html';
-      }
-    });
-}; //ws.onclose
+};

@@ -33,9 +33,9 @@ app.post('/api/login', (req, res) => {
   }
 
   // Access token: 15 minutes
-  const accessToken = jwt.sign({ username }, SECRET_KEY, { expiresIn: '15m' });
+  const accessToken = jwt.sign({ username }, SECRET_KEY, { expiresIn: '1m' /*'15m'*/ }); 
   // Refresh token: 90 days
-  const refreshToken = jwt.sign({ username }, SECRET_KEY, { expiresIn: '90d' });
+  const refreshToken = jwt.sign({ username }, SECRET_KEY, { expiresIn: '2m' /*'90d'*/ });
   console.log('[DBG]: access token generated:\n', accessToken);
   console.log('[DBG]: refresh token generated:\n', refreshToken);
 
@@ -45,7 +45,7 @@ app.post('/api/login', (req, res) => {
       httpOnly: true,
       // secure: true, // Uncomment when using HTTPS
       sameSite: 'strict', // CSRF protection
-      maxAge: 1 * 60, // 1 hour expiry for the cookie containing the token
+      maxAge: 60,//60 * 60, // 1 hour expiry for the cookie containing the token
       path: '/' // by default path would be 'api/login'. Setting it to '/' so that it's sent with all requests including ws handshake
     }),
     cookie.serialize('refreshToken', refreshToken, {
@@ -83,7 +83,7 @@ app.post('/api/refresh', (req, res) => {
       httpOnly: true,
       // secure: true,
       sameSite: 'strict',
-      maxAge: 15 * 60,
+      maxAge: 1 * 60,
       path: '/',
     }));
 
@@ -122,9 +122,14 @@ wss.on('connection', (ws, req) => {
     ws.username = decoded.username
     clients.set(ws.username, ws);
     console.log(`User authenticated: ${ws.username}`);
-    ws.send(JSON.stringify({ type: 'auth', status: 'success', username: ws.username }));
+    ws.send(JSON.stringify({ 
+      type: 'auth', 
+      status: 'success', 
+      username: ws.username,
+      exp: decoded.exp // Send expiry timestamp to client
+    }));
   } catch (err) {
-    ws.send(JSON.stringify({ type: 'auth', status: 'fail', error: 'Invalid or expired access token' }));
+    ws.send(JSON.stringify({ type: 'auth', status: 'fail', error: 'Invalid access token' }));
     ws.close();
     return;
   }
@@ -137,6 +142,11 @@ wss.on('connection', (ws, req) => {
       payload = JSON.parse(payloadJSON); // Parse incoming string to object
     } catch (e) {
       console.error('Invalid JSON:', payloadJSON);
+      return;
+    }
+
+    if (payload.type === 'token-expired-close') {
+      ws.close(4001, 'token_expired');
       return;
     }
 
