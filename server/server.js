@@ -62,7 +62,7 @@ app.post('/api/login', (req, res) => {
 
 
 
-// Token refresh endpoint
+// Token refresh endpoint (refresh the access token then rotate (refresh) the refresh token too)
 app.post('/api/refresh', (req, res) => {
   console.log('[DBG] Refresh token request received');
 
@@ -76,16 +76,28 @@ app.post('/api/refresh', (req, res) => {
   try {
     const decoded = jwt.verify(refreshToken, SECRET_KEY);
     const newAccessToken = jwt.sign({ username: decoded.username }, SECRET_KEY, { expiresIn: '1m' });
+    const newRefreshToken = jwt.sign({ username: decoded.username }, SECRET_KEY, { expiresIn: '2m' });
+
     console.log('[DBG] New access token generated:\n', newAccessToken);
-    
-    // Set new access token in httpOnly cookie
-    res.setHeader('Set-Cookie', cookie.serialize('accessToken', newAccessToken, {
-      httpOnly: true,
-      // secure: true,
-      sameSite: 'strict',
-      maxAge: 1 * 60,
-      path: '/',
-    }));
+    console.log('[DBG] New refresh token generated:\n', newRefreshToken);
+
+    // Set new access token and new refresh token in httpOnly cookie
+    res.setHeader('Set-Cookie', [
+      cookie.serialize('accessToken', newAccessToken, {
+        httpOnly: true,
+        // secure: true,
+        sameSite: 'strict',
+        maxAge: 1 * 60,
+        path: '/',
+      }),
+      cookie.serialize('refreshToken', newRefreshToken, {
+        httpOnly: true,
+        // secure: true,
+        sameSite: 'strict',
+        maxAge: 2 * 60,
+        path: '/',
+      })
+    ]);
 
     res.json({ success: true });
   } catch (err) {
