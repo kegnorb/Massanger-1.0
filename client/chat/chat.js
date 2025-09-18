@@ -1,59 +1,20 @@
 let isAuthenticated = false;
 let username = null;
+let ws;
 let refreshTimer; 
 let tokenRefreshInProgress = false;
 var newMessageContent;
 
-const ws = new WebSocket('ws://localhost:8081');
 
 
-
-// Factory function to create payloads
-function createPayload(type, props) {
-  return { type, ...props };
-}
-
-
-
-function executeSend() {
-  if (!isAuthenticated) {
-    alert('You must be logged in to send messages.');
-    return;
-  }
-
-  if (ws.readyState !== WebSocket.OPEN) {
-    alert('Connection lost. Please wait while reconnecting...');
-    // Later reconnection might be triggered here
-    return;
-  }
-
-  newMessageContent = document.getElementById('messageInput').value;
-
-  const chatPayload = createPayload('chat', {
-    sender: username,
-    id: Date.now(),
-    content: newMessageContent,
-    timestamp: new Date().toISOString(),
-  });
-
-  const messageJSON = JSON.stringify(chatPayload);
-
-  console.log('Sending message to server...');
-  ws.send(messageJSON);
-
-  document.getElementById("messageInput").value = "";
-}
-
-
-
-ws.onopen = () => {
+function handleOpen() {
   console.log('WebSocket connection established. Authenticating...');
   // Authentication will be handled via cookies automatically sent by the browser
-}; //ws.onopen
+}
 
 
 
-ws.onmessage = event => {
+function handleMessage(event) {
   console.log('Payload from server:\n ', event.data);
   const response = JSON.parse(event.data);
 
@@ -107,11 +68,11 @@ ws.onmessage = event => {
     messageDisplay.appendChild(messageBubble);
   }
   // ...handle other response types for status updates, or errors, etc.
-}; //ws.onmessage
+}
 
 
 
-ws.onclose = event => {
+function handleClose(event) {
   if (event.reason === 'token_expired' && !tokenRefreshInProgress) {
     tokenRefreshInProgress = true;
     fetch('/api/refresh', { method: 'POST' })
@@ -119,7 +80,7 @@ ws.onclose = event => {
       .then(data => {
         if (data.success) {
           console.log('Access token refreshed. Reconnecting WebSocket...');
-          // Reconnect WebSocket (will be implemented later after some refactoring)
+          initWebSocket(); // Reconnect WebSocket
           tokenRefreshInProgress = false;
         } else {
           alert('Session expired. Please log in again.');
@@ -130,4 +91,59 @@ ws.onclose = event => {
     alert('WebSocket connection closed. Please log in again.');
     window.location.href = '../user/login.html';
   }
+}
+
+
+
+function initWebSocket() {
+  ws = new WebSocket('ws://localhost:8081');
+  ws.onopen = handleOpen;
+  ws.onmessage = handleMessage;
+  ws.onclose = handleClose;
+}
+
+
+
+// Factory function to create payloads
+function createPayload(type, props) {
+  return { type, ...props };
+}
+
+
+
+function executeSend() {
+  if (!isAuthenticated) {
+    alert('You must be logged in to send messages.');
+    return;
+  }
+
+  if (ws.readyState !== WebSocket.OPEN) {
+    alert('Connection lost. Please wait while reconnecting...');
+    // Later reconnection might be triggered here
+    return;
+  }
+
+  newMessageContent = document.getElementById('messageInput').value;
+
+  const chatPayload = createPayload('chat', {
+    sender: username,
+    id: Date.now(),
+    content: newMessageContent,
+    timestamp: new Date().toISOString(),
+  });
+
+  const messageJSON = JSON.stringify(chatPayload);
+
+  console.log('Sending message to server...');
+  ws.send(messageJSON);
+
+  document.getElementById("messageInput").value = "";
+}
+
+
+
+window.onload = function() {
+  initWebSocket();
 };
+
+

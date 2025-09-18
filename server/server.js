@@ -75,7 +75,7 @@ app.post('/api/refresh', (req, res) => {
 
   try {
     const decoded = jwt.verify(refreshToken, SECRET_KEY);
-    const newAccessToken = jwt.sign({ username: decoded.username }, SECRET_KEY, { expiresIn: '15m' });
+    const newAccessToken = jwt.sign({ username: decoded.username }, SECRET_KEY, { expiresIn: '1m' });
     console.log('[DBG] New access token generated:\n', newAccessToken);
     
     // Set new access token in httpOnly cookie
