@@ -118,6 +118,7 @@ wss.on('connection', (ws, req) => {
 
   // access token (JWT) handshake/auth
   try {
+    ws.accessToken = accessToken; // Store token for (fallback) expiry checks
     const decoded = jwt.verify(accessToken, SECRET_KEY);
     ws.username = decoded.username
     clients.set(ws.username, ws);
@@ -143,6 +144,17 @@ wss.on('connection', (ws, req) => {
     } catch (e) {
       console.error('Invalid JSON:', payloadJSON);
       return;
+    }
+
+    // Fallback check for token expiry on every message except 'token-expired-close'
+    if (payload.type !== 'token-expired-close') {
+      try {
+        jwt.verify(ws.accessToken, SECRET_KEY);
+      } catch (err) { // Will throw if expired/invalid
+        console.log('Access token expired/invalid during message handling. Closing connection, issuing token refresh...');
+        ws.close(4001, 'token_expired');
+        return;
+      }
     }
 
     if (payload.type === 'token-expired-close') {

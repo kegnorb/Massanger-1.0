@@ -1,6 +1,7 @@
 let isAuthenticated = false;
 let username = null;
 let refreshTimer; 
+let tokenRefreshInProgress = false;
 var newMessageContent;
 
 const ws = new WebSocket('ws://localhost:8081');
@@ -76,6 +77,7 @@ ws.onmessage = event => {
         if (refreshTimer) clearTimeout(refreshTimer);
 
         refreshTimer = setTimeout(() => {
+          if (tokenRefreshInProgress) return; // Avoid multiple refresh attempts
           console.log('[DBG] Proactively triggering refresh of access token...');
           ws.send(JSON.stringify({ type: 'token-expired-close' }));
         }, refreshDelay);
@@ -110,13 +112,15 @@ ws.onmessage = event => {
 
 
 ws.onclose = event => {
-  if (event.reason === 'token_expired') {
+  if (event.reason === 'token_expired' && !tokenRefreshInProgress) {
+    tokenRefreshInProgress = true;
     fetch('/api/refresh', { method: 'POST' })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
           console.log('Access token refreshed. Reconnecting WebSocket...');
           // Reconnect WebSocket (will be implemented later after some refactoring)
+          tokenRefreshInProgress = false;
         } else {
           alert('Session expired. Please log in again.');
           window.location.href = '../user/login.html';
