@@ -24,6 +24,12 @@ function handleMessage(event) {
       username = response.username;
       console.log(`Authenticated as ${username}`);
 
+      if (document.getElementById('usernameDisplay').textContent === '') {
+        document.getElementById('usernameDisplay').textContent = `${username}`;
+      }
+
+      tokenRefreshInProgress = false; // Reset in case it was a refresh-triggered reconnect
+
       // Proactive refresh timer setup
       if (response.exp) {
         console.log('[DBG] expiry timestamp received from server:', response.exp);
@@ -87,6 +93,9 @@ function handleClose(event) {
           window.location.href = '../user/login.html';
         }
       });
+  } else if (event.reason === 'logout') {
+    console.log('Logout completed successfully.');
+    window.location.href = '../user/login.html';
   } else {
     alert('WebSocket connection closed. Please log in again.');
     window.location.href = '../user/login.html';

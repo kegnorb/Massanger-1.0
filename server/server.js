@@ -62,6 +62,54 @@ app.post('/api/login', (req, res) => {
 
 
 
+// Logout endpoint to clear cookies, session data and close WebSocket
+app.post('/api/logout', (req, res) => {
+  console.log('Logout request received');
+
+  // Extract username from access token (if present)
+  const cookies = cookie.parse(req.headers.cookie || '');
+  const accessToken = cookies.accessToken;
+  let username = null;
+
+  if (accessToken) {
+    try {
+      const decoded = jwt.verify(accessToken, SECRET_KEY);
+      username = decoded.username;
+    } catch (err) {
+      // Token invalid/expired, nothing to do
+    }
+  }
+
+  // Close WebSocket connection for this user if exists
+  if (username && clients.has(username)) {
+    const ws = clients.get(username);
+    ws.close(4000, 'logout');
+    clients.delete(username);
+  }
+
+  // Clear the cookies by setting them to expire in the past
+  res.setHeader('Set-Cookie', [
+    cookie.serialize('accessToken', '', {
+      httpOnly: true,
+      // secure: true,
+      sameSite: 'strict',
+      expires: new Date(0),
+      path: '/',
+    }),
+    cookie.serialize('refreshToken', '', {
+      httpOnly: true,
+      // secure: true,
+      sameSite: 'strict',
+      expires: new Date(0),
+      path: '/',
+    })
+  ]);
+
+  res.json({ success: true });
+});
+
+
+
 // Token refresh endpoint (refresh the access token then rotate (refresh) the refresh token too)
 app.post('/api/refresh', (req, res) => {
   console.log('[DBG] Refresh token request received');
