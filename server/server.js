@@ -268,7 +268,7 @@ wss.on('connection', (ws, req) => {
     return;
   }
 
-  ws.on('message', payloadJSON => {
+  ws.on('message', async payloadJSON => {
     //console.log('[DBG] Payload received:\n', payloadJSON);
     let payload;
 
@@ -302,6 +302,25 @@ wss.on('connection', (ws, req) => {
       payload.timestamp = new Date().toISOString();
       payload.status = 'received';
       ws.send(JSON.stringify(payload)); // Send back as JSON string
+    }
+
+    if (payload.type === 'search-users' && typeof payload.query === 'string') {
+      if (!payload.query.trim()) {
+      ws.send(JSON.stringify({ type: 'search-results', users: [] }));
+      return;
+    }
+
+    const regex = new RegExp('^' + payload.query, 'i');
+      const foundUsers = await users.find({ username: { $regex: regex } }).toArray();
+      // Exclude current user
+      const filtered = foundUsers
+        .map(u => ({
+          username: u.username,
+          userid: u._id
+        })) 
+        .filter(u => u !== ws.username); // Exclude current user from results
+      ws.send(JSON.stringify({ type: 'search-results', users: filtered }));
+      return;
     }
     // ...other types
   }); //ws.on('message')

@@ -73,6 +73,19 @@ function handleMessage(event) {
     messageBubble.textContent = `[${response.timestamp}] ${response.sender}: ${response.content} (Status: ${response.status})`;
     messageDisplay.appendChild(messageBubble);
   }
+
+  if (response.type === 'search-results') {
+    const resultsBox = document.getElementById('searchResultsBox');
+    resultsBox.innerHTML = '';
+    response.users.forEach(user => {
+      const item = document.createElement('div');
+      item.classList.add('search-result-item');
+      item.textContent = user.username;
+      item.onclick = () => startConversationWith(user);
+      resultsBox.appendChild(item);
+    });
+  }
+
   // ...handle other response types for status updates, or errors, etc.
 }
 
@@ -151,8 +164,26 @@ function executeSend() {
 
 
 
+function searchUsers() {
+  const query = this.value.trim();
+  //if (query.length < 2) return; // Only search for 2+ chars
+
+  // Send search request via WebSocket
+  ws.send(JSON.stringify({ type: 'search-users', query }));  
+}
+
+
+
+function startConversationWith(user) {
+  console.log(`Starting conversation with ${user.username} [id: ${user.userid}] (not implemented yet).`);
+}
+
+
+
 window.onload = function() {
   initWebSocket();
 };
 
 
+
+document.getElementById('searchUserInput').addEventListener('input', searchUsers);
