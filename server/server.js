@@ -281,6 +281,7 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+
     // Fallback check for token expiry on every message except 'token-expired-close'
     if (payload.type !== 'token-expired-close') {
       try {
@@ -292,10 +293,43 @@ wss.on('connection', (ws, req) => {
       }
     }
 
+
     if (payload.type === 'token-expired-close') {
       ws.close(4001, 'token_expired');
       return;
     }
+
+
+    if (payload.type === 'add-new-conversation' && Array.isArray(payload.userIds)) {
+      // Ensure only two participants for now
+      const participants = payload.userIds.sort(); // sort for consistent matching
+
+      // Check if conversation already exists
+      const existing = await conversations.findOne({ userIds: { $all: participants, $size: participants.length } });
+      if (existing) {
+        ws.send(JSON.stringify({
+          type: 'conversation-exists',
+          conversationId: existing._id.toString(),
+          userIds: existing.userIds
+        }));
+        return;
+      }
+
+      // Create new conversation
+      const conversation = {
+        userIds: participants,
+        createdAt: new Date()
+      };
+      const result = await conversations.insertOne(conversation);
+      ws.send(JSON.stringify({
+        type: 'new-conversation',
+        conversationId: result.insertedId.toString(),
+        userIds: participants,
+        createdAt: conversation.createdAt
+      }));
+      return;
+    }
+
 
     if (payload.type === 'chat' && ws.username) {
       // handle chat message
@@ -306,6 +340,7 @@ wss.on('connection', (ws, req) => {
       ws.send(JSON.stringify(payload)); // Send back as JSON string
     }
 
+    
     if (payload.type === 'search-users' && typeof payload.query === 'string') {
       if (!payload.query.trim()) {
       ws.send(JSON.stringify({ type: 'search-results', users: [] }));

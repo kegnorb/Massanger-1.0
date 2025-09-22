@@ -88,8 +88,21 @@ function handleMessage(event) {
     });
   }
 
+  if (response.type === 'new-conversation') {
+    // Add new conversation to UI
+    console.log('New conversation created:', response);
+    // TODO: Render conversation in the list
+  }
+
+  if (response.type === 'conversation-exists') {
+    // Conversation already exists
+    console.log('Conversation exists:', response);
+    // TODO: Select conversation in the list and Request history to open conversation messages
+    // Send get-conversation-history type message to server
+  }
+
   // ...handle other response types for status updates, or errors, etc.
-}
+}// handleMessage
 
 
 
@@ -178,6 +191,10 @@ function searchUsers() {
 
 function startConversationWith(user) {
   console.log('Starting conversation with user:', user.username, user.userId, 'currentUserId:', currentUserId);
+  ws.send(JSON.stringify({
+    type: 'add-new-conversation',
+    userIds: [currentUserId, user.userId]
+  }));
 }
 
 
