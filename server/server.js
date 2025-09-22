@@ -74,9 +74,9 @@ app.post('/api/login', async (req, res) => {
     }
 
     // Access token: 15 minutes
-    const accessToken = jwt.sign({ username }, SECRET_KEY, { expiresIn: '1m' /*'15m'*/ }); 
+    const accessToken = jwt.sign({ username, userId: user._id.toString() }, SECRET_KEY, { expiresIn: '1m' /*'15m'*/ }); 
     // Refresh token: 90 days
-    const refreshToken = jwt.sign({ username }, SECRET_KEY, { expiresIn: '2m' /*'90d'*/ });
+    const refreshToken = jwt.sign({ username, userId: user._id }, SECRET_KEY, { expiresIn: '2m' /*'90d'*/ });
     console.log('[DBG]: access token generated:\n', accessToken);
     console.log('[DBG]: refresh token generated:\n', refreshToken);
 
@@ -97,12 +97,11 @@ app.post('/api/login', async (req, res) => {
         path: '/'
       })
     ]);
+    res.json({ success: true }); // Token is sent in the httpOnly cookie (in the header)
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
-
-  res.json({ success: true }); // Token is sent in the httpOnly cookie (in the header)
 }); //app.post('/api/login' ...)
 
 
@@ -196,8 +195,8 @@ app.post('/api/refresh', (req, res) => {
 
   try {
     const decoded = jwt.verify(refreshToken, SECRET_KEY);
-    const newAccessToken = jwt.sign({ username: decoded.username }, SECRET_KEY, { expiresIn: '1m' });
-    const newRefreshToken = jwt.sign({ username: decoded.username }, SECRET_KEY, { expiresIn: '2m' });
+    const newAccessToken = jwt.sign({ username: decoded.username, userId: decoded.userId }, SECRET_KEY, { expiresIn: '1m' });
+    const newRefreshToken = jwt.sign({ username: decoded.username, userId: decoded.userId }, SECRET_KEY, { expiresIn: '2m' });
 
     console.log('[DBG] New access token generated:\n', newAccessToken);
     console.log('[DBG] New refresh token generated:\n', newRefreshToken);
@@ -236,6 +235,7 @@ const clients = new Map();
 
 wss.on('connection', (ws, req) => {
   ws.username = null; // Track authenticated user
+  ws.userId = null;
 
   // Extract cookies from the handshake request
   const cookies = cookie.parse(req.headers.cookie || '');
@@ -254,12 +254,14 @@ wss.on('connection', (ws, req) => {
     ws.accessToken = accessToken; // Store token for (fallback) expiry checks
     const decoded = jwt.verify(accessToken, SECRET_KEY);
     ws.username = decoded.username
+    ws.userId = decoded.userId;
     clients.set(ws.username, ws);
     console.log(`User authenticated: ${ws.username}`);
     ws.send(JSON.stringify({ 
       type: 'auth', 
       status: 'success', 
       username: ws.username,
+      userId: ws.userId,
       exp: decoded.exp // Send expiry timestamp to client
     }));
   } catch (err) {
@@ -316,7 +318,7 @@ wss.on('connection', (ws, req) => {
       const filtered = foundUsers
         .map(u => ({
           username: u.username,
-          userid: u._id
+          userId: u._id
         })) 
         .filter(u => u !== ws.username); // Exclude current user from results
       ws.send(JSON.stringify({ type: 'search-results', users: filtered }));

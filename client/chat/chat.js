@@ -1,5 +1,6 @@
 let isAuthenticated = false;
 let username = null;
+let currentUserId = null; // Store the logged-in user's ID
 let ws;
 let refreshTimer; 
 let tokenRefreshInProgress = false;
@@ -22,6 +23,7 @@ function handleMessage(event) {
     if (response.status === 'success') {
       isAuthenticated = true;
       username = response.username;
+      currentUserId = response.userId; // Store the userId from server
       console.log(`Authenticated as ${username}`);
 
       if (document.getElementById('usernameDisplay').textContent === '') {
@@ -175,7 +177,7 @@ function searchUsers() {
 
 
 function startConversationWith(user) {
-  console.log(`Starting conversation with ${user.username} [id: ${user.userid}] (not implemented yet).`);
+  console.log('Starting conversation with user:', user.username, user.userId, 'currentUserId:', currentUserId);
 }
 
 
