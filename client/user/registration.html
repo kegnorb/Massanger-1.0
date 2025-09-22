@@ -2,18 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Massanger-1.0 - log in or sign up</title>
+    <title>Massanger-1.0 - Registration</title>
   </head>
   <link rel="stylesheet" type="text/css" href="/user/user.css">
   <body>
     <div class="user-data-container">
+      <input type="email" id="email" class="user-data" placeholder="Email" />
       <input type="text" id="username" class="user-data" placeholder="Username" />
       <input type="password" id="password" class="user-data" placeholder="Password" />
-      <button id="loginButton" class="user-button" onclick="executeLogin()">Login</button>
-      <button id="createAccountButton" class="user-button" onclick="window.location.href='/user/registration.html'">
-        Create Account
-      </button>
+      <input type="password" id="confirm_password" class="user-data" placeholder="Confirm Password" />
+      <button id="registerButton" class="user-button" onclick="executeRegistration()">Register</button>
     </div>
+    <script src="/user/registration.js"></script>
     <script src="/user/login.js"></script>
   </body>
 </html>

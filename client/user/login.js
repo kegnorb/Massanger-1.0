@@ -1,7 +1,7 @@
-function executeLogin() {
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value;
-  
+function executeLogin(uname, pwd) {
+  const username = uname || document.getElementById('username').value.trim();
+  const password = pwd   || document.getElementById('password').value;
+
   if (!username || !password) {
     alert('Please enter a valid username and password!');
     return;

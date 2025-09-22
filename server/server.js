@@ -142,6 +142,34 @@ app.post('/api/logout', (req, res) => {
 
 
 
+// Registration endpoint with basic validation and user creation
+app.post('/api/register', async (req, res) => {
+  const { email, username, password } = req.body;
+  console.log('[DBG] Registration request received: ', { email, username, password });
+
+  // Basic validation
+  if (!email || !username || !password) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  try {
+    // Check if user already exists
+    const existingUser = await users.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ error: 'User already exists' });
+    }
+
+    // Create new user
+    await users.insertOne({ email, username, password });
+    res.status(201).json({ success: true });
+  } catch (err) {
+    console.error('Error during registration:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+
 // Token refresh endpoint (refresh the access token then rotate (refresh) the refresh token too)
 app.post('/api/refresh', (req, res) => {
   console.log('[DBG] Refresh token request received');

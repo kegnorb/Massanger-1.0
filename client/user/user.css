@@ -8,11 +8,10 @@ body {
     box-sizing: border-box;
 }
 
-.login-container {
+.user-data-container {
     width: 300px;
     margin: 100px auto;
     padding: 20px;
-    padding-top: 30px;
     background-color: rgb(42, 71, 93);
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
     text-align: center;
@@ -20,30 +19,31 @@ body {
     font-family: Arial, sans-serif;
 }
 
-.credentials {
+.user-data {
     width: 90%;
     height: 50px;
     font-size: 16px;
     padding: 10px;
-    margin-bottom: 20px;
-    border: 1px solid #ccc;
+    margin: 10px 0;
+    border: none;
     background-color: rgb(40, 41, 42);
     color: white;
 }
 
-#loginButton {
+.user-button { 
+    display: inline-block;
+    width: 90%;
     background-color: rgb(52, 101, 138);
     border: none;
     color: black;
     padding: 15px 32px;
     text-align: center;
     text-decoration: none;
-    display: block;
     font-size: 16px;
-    margin: 4px auto;
+    margin: 10px auto;
     cursor: pointer;
 }
 
-#loginButton:hover {
+.user-button:hover {
     background-color: rgb(80, 80, 80);
 }
