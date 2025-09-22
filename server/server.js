@@ -1,23 +1,55 @@
+// --- Imports ---
 const cookie = require('cookie');
 const express = require('express');
 const path = require('path');
 const http = require('http');
 const WebSocket = require('ws');
-
 const jwt = require('jsonwebtoken');
-const SECRET_KEY = 'dummy_secret_key'; // Will be updated to a strong secret key later
+const { MongoClient } = require('mongodb');
 
+// --- Configurations ---
+const SECRET_KEY = 'dummy_secret_key'; // Will be updated to a strong secret key later
+const MONGO_URI = 'mongodb://localhost:27017';
+const DB_NAME = 'massangerdb';
+
+// --- App setup ---
 const app = express();
 const server = http.createServer(app);
 
+// --- Middleware ---
+app.use(express.static(path.join(__dirname, '../client'))); // Serve static files from the client folder
+app.use(express.json()); // for parsing incoming JSON requests
+
+// --- Global variables ---
+let db; 
+let users, conversations, messages; // Collections
+
+
+
+// --- Async initializations ---
+const mongoPromise = MongoClient.connect(MONGO_URI)
+  .then(client => {
+    db = client.db(DB_NAME);
+    users = db.collection('users');
+    conversations = db.collection('conversations');
+    messages = db.collection('messages');
+    console.log('MongoDB connected and collections are ready');
+  })
+  .catch(err => {
+    console.error('MongoDB connection failed:', err);
+    process.exit(1);
+  });
+
+// Add more async initializations here if needed...
+
+
+
+// --- Routes and WebSocket handling ---
+
+// Root route (endpoint) to serve login page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/user/login.html'));
 });
-
-// Serve static files from the client folder
-app.use(express.static(path.join(__dirname, '../client')));
-
-app.use(express.json());
 
 
 
@@ -245,6 +277,15 @@ wss.on('connection', (ws, req) => {
 
 
 
-server.listen(8081, () => {
-  console.log('Server running on http://localhost:8081');
-});
+// --- Wait for all initializations before starting server ---
+Promise.all([mongoPromise /*, redisPromise */])
+  .then(() => {
+    // All async inits are done, start the server
+    server.listen(8081, () => {
+      console.log('Server running on http://localhost:8081');
+    });
+  })
+  .catch(err => {
+    console.error('Startup failed:', err);
+    process.exit(1);
+  });
