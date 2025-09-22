@@ -54,40 +54,53 @@ app.get('/', (req, res) => {
 
 
 // HTTP authentication endpoint with dummy logic
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
 
-  const HARDCODED_PASSWORD = 'pass123';
-
-  // Check credentials
-  if (!username || password !== HARDCODED_PASSWORD) {
-    return res.status(401).json({ error: 'Invalid credentials' });
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required' });
   }
 
-  // Access token: 15 minutes
-  const accessToken = jwt.sign({ username }, SECRET_KEY, { expiresIn: '1m' /*'15m'*/ }); 
-  // Refresh token: 90 days
-  const refreshToken = jwt.sign({ username }, SECRET_KEY, { expiresIn: '2m' /*'90d'*/ });
-  console.log('[DBG]: access token generated:\n', accessToken);
-  console.log('[DBG]: refresh token generated:\n', refreshToken);
+  try {
+    // Find user by username
+    const user = await users.findOne({ username });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
-  // Set cookie options
-  res.setHeader('Set-Cookie', [
-    cookie.serialize('accessToken', accessToken, {
-      httpOnly: true,
-      // secure: true, // Uncomment when using HTTPS
-      sameSite: 'strict', // CSRF protection
-      maxAge: 60,//60 * 60, // 1 hour expiry for the cookie containing the token
-      path: '/' // by default path would be 'api/login'. Setting it to '/' so that it's sent with all requests including ws handshake
-    }),
-    cookie.serialize('refreshToken', refreshToken, {
-      httpOnly: true,
-      // secure: true, // Uncomment when using HTTPS
-      sameSite: 'strict',
-      maxAge: 120,//90 * 24 * 60 * 60, // 90 days
-      path: '/'
-    })
-  ]);
+    // Check password (plain text for now; use hashing in production)
+    if (user.password !== password) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Access token: 15 minutes
+    const accessToken = jwt.sign({ username }, SECRET_KEY, { expiresIn: '1m' /*'15m'*/ }); 
+    // Refresh token: 90 days
+    const refreshToken = jwt.sign({ username }, SECRET_KEY, { expiresIn: '2m' /*'90d'*/ });
+    console.log('[DBG]: access token generated:\n', accessToken);
+    console.log('[DBG]: refresh token generated:\n', refreshToken);
+
+    // Set cookie options
+    res.setHeader('Set-Cookie', [
+      cookie.serialize('accessToken', accessToken, {
+        httpOnly: true,
+        // secure: true, // Uncomment when using HTTPS
+        sameSite: 'strict', // CSRF protection
+        maxAge: 60,//60 * 60, // 1 hour expiry for the cookie containing the token
+        path: '/' // by default path would be 'api/login'. Setting it to '/' so that it's sent with all requests including ws handshake
+      }),
+      cookie.serialize('refreshToken', refreshToken, {
+        httpOnly: true,
+        // secure: true, // Uncomment when using HTTPS
+        sameSite: 'strict',
+        maxAge: 120,//90 * 24 * 60 * 60, // 90 days
+        path: '/'
+      })
+    ]);
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 
   res.json({ success: true }); // Token is sent in the httpOnly cookie (in the header)
 }); //app.post('/api/login' ...)
