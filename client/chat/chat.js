@@ -1,6 +1,7 @@
 let isAuthenticated = false;
 let username = null;
 let currentUserId = null; // Store the logged-in user's ID
+let currentConversationId = null; // Store the current conversation ID
 let ws;
 let refreshTimer; 
 let tokenRefreshInProgress = false;
@@ -52,7 +53,8 @@ function handleMessage(event) {
         }, refreshDelay);
       }
 
-      // Load chat UI and previous messages in later versions
+      // Request the conversation list after authentication
+      ws.send(JSON.stringify({ type: 'get-conversation-list' }));
     } else {
       alert('Authentication failed. Please log in again.');
       window.location.href = '../user/login.html';
@@ -79,6 +81,7 @@ function handleMessage(event) {
   if (response.type === 'search-results') {
     const resultsBox = document.getElementById('searchResultsBox');
     resultsBox.innerHTML = '';
+
     response.users.forEach(user => {
       const item = document.createElement('div');
       item.classList.add('search-result-item');
@@ -99,6 +102,22 @@ function handleMessage(event) {
     console.log('Conversation exists:', response);
     // TODO: Select conversation in the list and Request history to open conversation messages
     // Send get-conversation-history type message to server
+  }
+
+  if (response.type === 'update-conversation-list') {
+    const conversationList = document.getElementsByClassName('conversation-list')[0];
+    conversationList.innerHTML = ''; // Clear previous list if any
+
+    response.conversations.forEach(conversation => {
+      const conversationItem = document.createElement('div');
+      conversationItem.classList.add('conversation-item');
+      // Show other participant(s) usernames (filter out self)
+      const partnerUsernames = conversation.usernames.filter(uname => uname !== username);
+      conversationItem.textContent = `${partnerUsernames.join(', ')}`;
+      conversationItem.dataset.conversationId = conversation.conversationId;
+      conversationItem.onclick = () => handleConversationClick(conversation.conversationId);
+      conversationList.appendChild(conversationItem);
+    });
   }
 
   // ...handle other response types for status updates, or errors, etc.
@@ -195,6 +214,14 @@ function startConversationWith(user) {
     type: 'add-new-conversation',
     userIds: [currentUserId, user.userId]
   }));
+}
+
+
+
+function handleConversationClick(conversationId) {
+  currentConversationId = conversationId;
+  console.log('Selected conversation:', currentConversationId);
+  // TODO: 'get-conversation-history'
 }
 
 

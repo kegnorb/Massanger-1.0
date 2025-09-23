@@ -5,7 +5,7 @@ const path = require('path');
 const http = require('http');
 const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 
 // --- Configurations ---
 const SECRET_KEY = 'dummy_secret_key'; // Will be updated to a strong secret key later
@@ -296,6 +296,36 @@ wss.on('connection', (ws, req) => {
 
     if (payload.type === 'token-expired-close') {
       ws.close(4001, 'token_expired');
+      return;
+    }
+
+
+    if (payload.type === 'get-conversation-list' && ws.userId) {
+      // Find all conversations where the user is a participant
+      const userConversations = await conversations.find({ userIds: ws.userId }).toArray();
+
+      const allUserIds = [...new Set(userConversations.flatMap(c => c.userIds))];
+
+      const userDocs = await users.find(
+        { _id: { $in: allUserIds.map(id => ObjectId.createFromHexString(id)) } },
+        { projection: { username: 1 } }
+      ).toArray();
+
+      // Build a lookup map: userId (as string) -> username
+      const idToUsername = Object.fromEntries(userDocs.map(u => [u._id.toString(), u.username]));
+
+      // Later, include latest message timestamp for each conversation (for future sorting)
+      // For now, just send the conversation objects
+      ws.send(JSON.stringify({
+        type: 'update-conversation-list',
+        conversations: userConversations.map(conversation => ({
+          conversationId: conversation._id.toString(),
+          userIds: conversation.userIds,
+          usernames: conversation.userIds.map(id => idToUsername[id] || '(unknown)'),
+          createdAt: conversation.createdAt
+          //latestMessageTimestamp: conversation.latestMessageTimestamp
+        }))
+      }));
       return;
     }
 

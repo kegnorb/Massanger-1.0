@@ -124,6 +124,16 @@ body {
     padding: 20px;
 }
 
+.conversation-item {
+    border: none;
+    width: 100%;
+    height: 60px;
+    padding: 10px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    background-color: rgb(70, 70, 70);
+}
+
 .chat-area {
     border: 1px solid purple;
     flex: 1;
