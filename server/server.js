@@ -361,16 +361,35 @@ wss.on('connection', (ws, req) => {
     }
 
 
-    if (payload.type === 'chat' && ws.username) {
-      // handle chat message
-      // Optionally modify payload object here (e.g., add server timestamp)
-      payload.sender = ws.username;
-      payload.timestamp = new Date().toISOString();
-      payload.status = 'received';
-      ws.send(JSON.stringify(payload)); // Send back as JSON string
-    }
-
+    if (payload.type === 'add-new-message' && ws.userId && payload.conversationId && payload.content) {
+      const message = {
+        conversationId: payload.conversationId,
+        senderId: ws.userId,
+        sender: ws.username,
+        content: payload.content,
+        timestamp: new Date(),
+        // Add more metadata if needed
+      };
     
+      // Insert the message into the messages collection
+      await messages.insertOne(message);
+    
+      // Update the latestMessageTimestamp in the conversation
+      await conversations.updateOne(
+        { _id: ObjectId.createFromHexString(payload.conversationId) },
+        { $set: { latestMessageTimestamp: message.timestamp } }
+      );
+    
+      // Broadcast the message to all participants (for now, just send back to sender)
+      ws.send(JSON.stringify({
+        type: 'new-message',
+        ...message
+      }));
+    
+      return;
+    }
+    
+
     if (payload.type === 'search-users' && typeof payload.query === 'string') {
       if (!payload.query.trim()) {
       ws.send(JSON.stringify({ type: 'search-results', users: [] }));

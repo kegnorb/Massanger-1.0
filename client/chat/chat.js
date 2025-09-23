@@ -62,7 +62,7 @@ function handleMessage(event) {
     }
   }
 
-  if (response.type === 'chat' && isAuthenticated) {
+  if (response.type === 'new-message' && isAuthenticated) {
     const sender = response.sender;
     const messageDisplay = document.getElementsByClassName('message-display')[0];
     const messageBubble = document.createElement('div');
@@ -181,16 +181,22 @@ function executeSend() {
 
   newMessageContent = document.getElementById('messageInput').value;
 
-  const chatPayload = createPayload('chat', {
+  if (!currentConversationId) {
+    alert('No conversation selected.');
+    return;
+  }
+
+  const newMessagePayload = createPayload('add-new-message', {
+    conversationId: currentConversationId,
     sender: username,
-    id: Date.now(),
+    senderId: currentUserId,
     content: newMessageContent,
     timestamp: new Date().toISOString(),
   });
 
-  const messageJSON = JSON.stringify(chatPayload);
+  const messageJSON = JSON.stringify(newMessagePayload);
 
-  console.log('Sending message to server...');
+  console.log('Sending new message to server...');
   ws.send(messageJSON);
 
   document.getElementById("messageInput").value = "";
