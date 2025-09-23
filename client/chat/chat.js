@@ -2,6 +2,7 @@ let isAuthenticated = false;
 let username = null;
 let currentUserId = null; // Store the logged-in user's ID
 let currentConversationId = null; // Store the current conversation ID
+let conversationListLoaded = false;
 let ws;
 let refreshTimer; 
 let tokenRefreshInProgress = false;
@@ -53,13 +54,37 @@ function handleMessage(event) {
         }, refreshDelay);
       }
 
-      // Request the conversation list after authentication
-      ws.send(JSON.stringify({ type: 'get-conversation-list' }));
+      // Request the conversation list after initial authentication
+      if (!conversationListLoaded) {
+        ws.send(JSON.stringify({ type: 'get-conversation-list' }));
+        conversationListLoaded = true;
+      }
     } else {
       alert('Authentication failed. Please log in again.');
       window.location.href = '../user/login.html';
       return;
     }
+  }
+
+  if (response.type === 'conversation-history' && response.conversationId === currentConversationId) {
+    const messageDisplay = document.getElementsByClassName('message-display')[0];
+    messageDisplay.innerHTML = ''; // Clear previous messages
+
+    // Only use sort if messages are not guaranteed to be in order
+    const sortedMessages = response.messages; //.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    sortedMessages.forEach(msg => {
+      const messageItem = document.createElement('div');
+      messageItem.classList.add('message-item');
+      //Distinguishing self vs partner(s) messages
+      if (msg.sender === username) {
+        messageItem.classList.add('message-item-self');
+      } else {
+        messageItem.classList.add('message-item-partner');
+      }
+      messageItem.textContent = `[${msg.timestamp}] ${msg.sender}: ${msg.content}`;
+      messageDisplay.appendChild(messageItem);
+    });
   }
 
   if (response.type === 'new-message' && isAuthenticated) {
@@ -227,7 +252,12 @@ function startConversationWith(user) {
 function handleConversationClick(conversationId) {
   currentConversationId = conversationId;
   console.log('Selected conversation:', currentConversationId);
-  // TODO: 'get-conversation-history'
+  
+  // Request conversation history from the server
+  ws.send(JSON.stringify({
+    type: 'get-conversation-history',
+    conversationId: currentConversationId
+  }));
 }
 
 

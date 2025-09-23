@@ -361,6 +361,24 @@ wss.on('connection', (ws, req) => {
     }
 
 
+    if (payload.type === 'get-conversation-history' && ws.userId && payload.conversationId) {
+      const query = { conversationId: payload.conversationId }; // Query all messages for this conversation
+      // Add .limit(n) and .sort({ timestamp: -1 }) here later for lazy loading
+      const messagesArray = await messages.find(query)./* sort({ timestamp: -1 }).limit(50). */toArray();
+      // messagesArray.reverse(); // To get chronological order
+        
+      // Sort by timestamp ascending (chronological order) only used if not using .sort() in the query above
+      messagesArray.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      ws.send(JSON.stringify({
+        type: 'conversation-history',
+        conversationId: payload.conversationId,
+        messages: messagesArray
+      }));
+      return;
+    }
+
+
     if (payload.type === 'add-new-message' && ws.userId && payload.conversationId && payload.content) {
       const message = {
         conversationId: payload.conversationId,
@@ -404,7 +422,7 @@ wss.on('connection', (ws, req) => {
           username: u.username,
           userId: u._id
         })) 
-        .filter(u => u !== ws.username); // Exclude current user from results
+        .filter(u => u.username !== ws.username); // Exclude current user from results
       ws.send(JSON.stringify({ type: 'search-results', users: filtered }));
       return;
     }
