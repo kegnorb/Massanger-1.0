@@ -128,7 +128,17 @@ function handleMessage(event) {
   if (response.type === 'new-conversation') {
     // Add new conversation to UI
     console.log('New conversation created:', response);
-    // TODO: Render conversation in the list
+    const conversationList = document.getElementsByClassName('conversation-list')[0];
+    const conversationItem = document.createElement('div');
+    conversationItem.classList.add('conversation-item');
+    const partnerUsernames = response.usernames.filter(uname => uname !== username);
+    conversationItem.textContent = `${partnerUsernames.join(', ')}`;
+    conversationItem.dataset.conversationId = response.conversationId;
+    conversationItem.onclick = () => handleConversationClick(response.conversationId);
+    conversationList.appendChild(conversationItem);
+
+    // Automatically select the new conversation
+    handleConversationClick(response.conversationId);
   }
 
 

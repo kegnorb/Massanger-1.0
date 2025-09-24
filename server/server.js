@@ -47,6 +47,18 @@ const mongoPromise = MongoClient.connect(MONGO_URI)
 
 
 
+// --- Helper functions ---
+async function getUsernamesForUserIds(userIds) {
+  const userDocs = await users.find(
+    { _id: { $in: userIds.map(id => ObjectId.createFromHexString(id)) } },
+    { projection: { username: 1 } }
+  ).toArray();
+  const idToUsername = Object.fromEntries(userDocs.map(u => [u._id.toString(), u.username]));
+  return userIds.map(id => idToUsername[id] || '(unknown)');
+}
+
+
+
 // --- Routes and WebSocket handling ---
 
 // Root route (endpoint) to serve login page
@@ -326,13 +338,15 @@ wss.on('connection', (ws, req) => {
       // For now, just send the conversation objects
       ws.send(JSON.stringify({
         type: 'update-conversation-list',
-        conversations: userConversations.map(conversation => ({
-          conversationId: conversation._id.toString(),
-          userIds: conversation.userIds,
-          usernames: conversation.userIds.map(id => idToUsername[id] || '(unknown)'),
-          createdAt: conversation.createdAt
-          //latestMessageTimestamp: conversation.latestMessageTimestamp
-        }))
+        conversations: await Promise.all(
+          userConversations.map(async conversation => ({
+            conversationId: conversation._id.toString(),
+            userIds: conversation.userIds,
+            usernames: await getUsernamesForUserIds(conversation.userIds),
+            createdAt: conversation.createdAt
+            // latestMessageTimestamp: conversation.latestMessageTimestamp
+          }))
+        )
       }));
       return;
     }
@@ -359,10 +373,14 @@ wss.on('connection', (ws, req) => {
         createdAt: new Date()
       };
       const result = await conversations.insertOne(conversation);
+
+      const usernames = await getUsernamesForUserIds(participants);
+
       ws.send(JSON.stringify({
         type: 'new-conversation',
         conversationId: result.insertedId.toString(),
         userIds: participants,
+        usernames,
         createdAt: conversation.createdAt
       }));
       return;
@@ -413,14 +431,8 @@ wss.on('connection', (ws, req) => {
         { $set: { latestMessageTimestamp: message.timestamp } }
       );
     
-      // Broadcast the message to all participants in the conversation
-      ws.send(JSON.stringify({
-        type: 'new-message',
-        ...message
-      }));
-      // Notify other participants if they are connected
+      // Broadcast the new message to every participants' every connections including the sender too
       for (const recipientId of conversation.userIds) {
-        if (recipientId === ws.userId) continue; // skip sender
         const connections = userConnections.get(recipientId);
         if (connections) {
           for (const recipientWs of connections) {
