@@ -24,6 +24,9 @@ app.use(express.json()); // for parsing incoming JSON requests
 let db; 
 let users, conversations, messages; // Collections
 
+// Map to keep track of user connections
+const userConnections = new Map(); // userId -> Set of ws connections
+
 
 
 // --- Async initializations ---
@@ -255,6 +258,11 @@ wss.on('connection', (ws, req) => {
     const decoded = jwt.verify(accessToken, SECRET_KEY);
     ws.username = decoded.username
     ws.userId = decoded.userId;
+
+    // Make available the connection instance of this userId for other users' connections to send real-time messages
+    if (!userConnections.has(ws.userId)) userConnections.set(ws.userId, new Set());
+    userConnections.get(ws.userId).add(ws);
+
     clients.set(ws.username, ws);
     console.log(`User authenticated: ${ws.username}`);
     ws.send(JSON.stringify({ 
@@ -380,6 +388,13 @@ wss.on('connection', (ws, req) => {
 
 
     if (payload.type === 'add-new-message' && ws.userId && payload.conversationId && payload.content) {
+      const conversation = await conversations.findOne({ _id: ObjectId.createFromHexString(payload.conversationId) });
+      
+      if (!conversation) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Conversation not found.' }));
+        return;
+      }
+
       const message = {
         conversationId: payload.conversationId,
         senderId: ws.userId,
@@ -398,11 +413,21 @@ wss.on('connection', (ws, req) => {
         { $set: { latestMessageTimestamp: message.timestamp } }
       );
     
-      // Broadcast the message to all participants (for now, just send back to sender)
+      // Broadcast the message to all participants in the conversation
       ws.send(JSON.stringify({
         type: 'new-message',
         ...message
       }));
+      // Notify other participants if they are connected
+      for (const recipientId of conversation.userIds) {
+        if (recipientId === ws.userId) continue; // skip sender
+        const connections = userConnections.get(recipientId);
+        if (connections) {
+          for (const recipientWs of connections) {
+            recipientWs.send(JSON.stringify({ type: 'new-message', ...message }));
+          }
+        }
+      }
     
       return;
     }
@@ -434,6 +459,10 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => {
     if (ws.username) {
       clients.delete(ws.username);
+
+      userConnections.get(ws.userId)?.delete(ws);
+      if (userConnections.get(ws.userId)?.size === 0) userConnections.delete(ws.userId);
+      
       console.log(`User disconnected: ${ws.username}`);
     }
   }); //ws.on('close')

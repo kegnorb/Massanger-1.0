@@ -21,6 +21,7 @@ function handleMessage(event) {
   console.log('Payload from server:\n ', event.data);
   const response = JSON.parse(event.data);
 
+
   if (response.type === 'auth') {
     if (response.status === 'success') {
       isAuthenticated = true;
@@ -66,6 +67,7 @@ function handleMessage(event) {
     }
   }
 
+
   if (response.type === 'conversation-history' && response.conversationId === currentConversationId) {
     const messageDisplay = document.getElementsByClassName('message-display')[0];
     messageDisplay.innerHTML = ''; // Clear previous messages
@@ -76,32 +78,38 @@ function handleMessage(event) {
     sortedMessages.forEach(msg => {
       const messageItem = document.createElement('div');
       messageItem.classList.add('message-item');
+
       //Distinguishing self vs partner(s) messages
       if (msg.sender === username) {
         messageItem.classList.add('message-item-self');
       } else {
         messageItem.classList.add('message-item-partner');
       }
+
       messageItem.textContent = `[${msg.timestamp}] ${msg.sender}: ${msg.content}`;
       messageDisplay.appendChild(messageItem);
     });
   }
 
+
   if (response.type === 'new-message' && isAuthenticated) {
+    console.log('[DBG] New message received:', response);
     const sender = response.sender;
     const messageDisplay = document.getElementsByClassName('message-display')[0];
-    const messageBubble = document.createElement('div');
+    const messageItem = document.createElement('div');
+    messageItem.classList.add('message-item');
 
     //logic for distinguishing own and other messages
     if (sender === username) {
-      messageBubble.classList.add('message-bubble-own');
+      messageItem.classList.add('message-item-self');
     } else {
-      messageBubble.classList.add('message-bubble-other');
+      messageItem.classList.add('message-item-partner');
     }
-  
-    messageBubble.textContent = `[${response.timestamp}] ${response.sender}: ${response.content} (Status: ${response.status})`;
-    messageDisplay.appendChild(messageBubble);
+
+    messageItem.textContent = `[${response.timestamp}] ${response.sender}: ${response.content} (Status: ${response.status})`;
+    messageDisplay.appendChild(messageItem);
   }
+
 
   if (response.type === 'search-results') {
     const resultsBox = document.getElementById('searchResultsBox');
@@ -116,11 +124,13 @@ function handleMessage(event) {
     });
   }
 
+
   if (response.type === 'new-conversation') {
     // Add new conversation to UI
     console.log('New conversation created:', response);
     // TODO: Render conversation in the list
   }
+
 
   if (response.type === 'conversation-exists') {
     // Conversation already exists
@@ -128,6 +138,7 @@ function handleMessage(event) {
     // TODO: Select conversation in the list and Request history to open conversation messages
     // Send get-conversation-history type message to server
   }
+
 
   if (response.type === 'update-conversation-list') {
     const conversationList = document.getElementsByClassName('conversation-list')[0];
