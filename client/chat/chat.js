@@ -143,10 +143,8 @@ function handleMessage(event) {
 
 
   if (response.type === 'conversation-exists') {
-    // Conversation already exists
     console.log('Conversation exists:', response);
-    // TODO: Select conversation in the list and Request history to open conversation messages
-    // Send get-conversation-history type message to server
+    handleConversationClick(response.conversationId);
   }
 
 
