@@ -343,8 +343,8 @@ wss.on('connection', (ws, req) => {
             conversationId: conversation._id.toString(),
             userIds: conversation.userIds,
             usernames: await getUsernamesForUserIds(conversation.userIds),
-            createdAt: conversation.createdAt
-            // latestMessageTimestamp: conversation.latestMessageTimestamp
+            createdAt: conversation.createdAt,
+            latestMessageTimestamp: conversation.latestMessageTimestamp
           }))
         )
       }));

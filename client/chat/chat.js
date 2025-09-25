@@ -149,19 +149,8 @@ function handleMessage(event) {
 
 
   if (response.type === 'update-conversation-list') {
-    const conversationList = document.getElementsByClassName('conversation-list')[0];
-    conversationList.innerHTML = ''; // Clear previous list if any
-
-    response.conversations.forEach(conversation => {
-      const conversationItem = document.createElement('div');
-      conversationItem.classList.add('conversation-item');
-      // Show other participant(s) usernames (filter out self)
-      const partnerUsernames = conversation.usernames.filter(uname => uname !== username);
-      conversationItem.textContent = `${partnerUsernames.join(', ')}`;
-      conversationItem.dataset.conversationId = conversation.conversationId;
-      conversationItem.onclick = () => handleConversationClick(conversation.conversationId);
-      conversationList.appendChild(conversationItem);
-    });
+    sortedConversations = sortConversationsChronologically(response.conversations);
+    renderConversationList(sortedConversations);
   }
 
   // ...handle other response types for status updates, or errors, etc.
@@ -201,6 +190,31 @@ function initWebSocket() {
   ws.onmessage = handleMessage;
   ws.onclose = handleClose;
 }
+
+
+
+function sortConversationsChronologically(conversations) {
+  return [...conversations].sort((a, b) => new Date(b.latestMessageTimestamp) - new Date(a.latestMessageTimestamp));
+}
+
+
+
+function renderConversationList(conversations) {
+  const conversationList = document.getElementsByClassName('conversation-list')[0];
+  conversationList.innerHTML = ''; // Clear previous list if any
+
+  conversations.forEach(conversation => {
+    const conversationItem = document.createElement('div');
+    conversationItem.classList.add('conversation-item');
+    // Show other participant(s) usernames (filter out self)
+    const partnerUsernames = conversation.usernames.filter(uname => uname !== username);
+    conversationItem.textContent = `${partnerUsernames.join(', ')}`;
+    conversationItem.dataset.conversationId = conversation.conversationId;
+    conversationItem.onclick = () => handleConversationClick(conversation.conversationId);
+    conversationList.appendChild(conversationItem);
+  });
+}
+
 
 
 
