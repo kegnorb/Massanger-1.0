@@ -97,10 +97,9 @@ function handleMessage(event) {
     console.log('[DBG] New message received:', response);
 
     // Find the conversation in the cache and update its latestMessageTimestamp
-    const idx = conversationsCache.findIndex(c => c.conversationId === response.conversationId);
-    if (idx !== -1) {
-      conversationsCache[idx].latestMessageTimestamp = response.timestamp;
-      // Optionally, update other metadata if needed
+    const i = conversationsCache.findIndex(c => c.conversationId === response.conversationId);
+    if (i !== -1) {
+      conversationsCache[i].latestMessageTimestamp = response.timestamp;
     }
     // Re-sort and re-render
     const sortedConversations = sortConversationsChronologically(conversationsCache);
