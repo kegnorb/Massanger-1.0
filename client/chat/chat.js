@@ -9,6 +9,8 @@ let refreshTimer;
 let tokenRefreshInProgress = false;
 var newMessageContent;
 
+const messageDisplay = document.getElementsByClassName('message-display')[0];
+
 
 
 function handleOpen() {
@@ -70,55 +72,36 @@ function handleMessage(event) {
 
 
   if (response.type === 'conversation-history' && response.conversationId === currentConversationId) {
-    const messageDisplay = document.getElementsByClassName('message-display')[0];
-    messageDisplay.innerHTML = ''; // Clear previous messages
-
     // Only use sort if messages are not guaranteed to be in order
     const sortedMessages = response.messages; //.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-    sortedMessages.forEach(msg => {
-      const messageItem = document.createElement('div');
-      messageItem.classList.add('message-item');
-
-      //Distinguishing self vs partner(s) messages
-      if (msg.sender === username) {
-        messageItem.classList.add('message-item-self');
-      } else {
-        messageItem.classList.add('message-item-partner');
-      }
-
-      messageItem.textContent = `[${msg.timestamp}] ${msg.sender}: ${msg.content}`;
-      messageDisplay.appendChild(messageItem);
-    });
+    renderInitialConversationHistory(sortedMessages);
   }
 
 
   if (response.type === 'new-message' && isAuthenticated) {
     console.log('[DBG] New message received:', response);
 
+    // Check if the conversation exists in cache
+    const exists = conversationsCache.some(c => c.conversationId === response.conversationId);
+    if (!exists) {
+      return console.warn('[WARN] Received message for unknown conversationId:', response.conversationId);
+    }
+    
     // Find the conversation in the cache and update its latestMessageTimestamp
     const i = conversationsCache.findIndex(c => c.conversationId === response.conversationId);
     if (i !== -1) {
       conversationsCache[i].latestMessageTimestamp = response.timestamp;
     }
-    // Re-sort and re-render
+    // Re-sort and re-render the conversation list
     const sortedConversations = sortConversationsChronologically(conversationsCache);
     renderConversationList(sortedConversations);
 
-    const sender = response.sender;
-    const messageDisplay = document.getElementsByClassName('message-display')[0];
-    const messageItem = document.createElement('div');
-    messageItem.classList.add('message-item');
-
-    //logic for distinguishing own and other messages
-    if (sender === username) {
-      messageItem.classList.add('message-item-self');
-    } else {
-      messageItem.classList.add('message-item-partner');
+    if (response.conversationId !== currentConversationId) {
+      console.log('[DBG] Message is for a different conversation. Ignoring display update.');
+      return; // Ignore messages for other conversations
     }
 
-    messageItem.textContent = `[${response.timestamp}] ${response.sender}: ${response.content} (Status: ${response.status})`;
-    messageDisplay.appendChild(messageItem);
+    appendMessage(response);
   }
 
 
@@ -300,6 +283,35 @@ function handleConversationClick(conversationId) {
     type: 'get-conversation-history',
     conversationId: currentConversationId
   }));
+}
+
+
+
+function createMessageItem(message) {
+  const messageItem = document.createElement('div');
+  messageItem.classList.add('message-item');
+  if (message.sender === username) {
+    messageItem.classList.add('message-item-self');
+  } else {
+    messageItem.classList.add('message-item-partner');
+  }
+  messageItem.textContent = `[${message.timestamp}] ${message.sender}: ${message.content}`;
+  return messageItem;
+}
+
+
+
+function renderInitialConversationHistory(messages) {
+  messageDisplay.innerHTML = ''; // Clear previous messages if any
+  messages.forEach(message => {
+    messageDisplay.appendChild(createMessageItem(message));
+  });
+}
+
+
+
+function appendMessage(message) {
+  messageDisplay.appendChild(createMessageItem(message));
 }
 
 
