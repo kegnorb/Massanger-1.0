@@ -3,6 +3,7 @@ let username = null;
 let currentUserId = null; // Store the logged-in user's ID
 let currentConversationId = null; // Store the current conversation ID
 let conversationListLoaded = false;
+let conversationsCache = []; // Stores all conversation objects
 let ws;
 let refreshTimer; 
 let tokenRefreshInProgress = false;
@@ -94,6 +95,17 @@ function handleMessage(event) {
 
   if (response.type === 'new-message' && isAuthenticated) {
     console.log('[DBG] New message received:', response);
+
+    // Find the conversation in the cache and update its latestMessageTimestamp
+    const idx = conversationsCache.findIndex(c => c.conversationId === response.conversationId);
+    if (idx !== -1) {
+      conversationsCache[idx].latestMessageTimestamp = response.timestamp;
+      // Optionally, update other metadata if needed
+    }
+    // Re-sort and re-render
+    const sortedConversations = sortConversationsChronologically(conversationsCache);
+    renderConversationList(sortedConversations);
+
     const sender = response.sender;
     const messageDisplay = document.getElementsByClassName('message-display')[0];
     const messageItem = document.createElement('div');
@@ -126,19 +138,16 @@ function handleMessage(event) {
 
 
   if (response.type === 'new-conversation') {
-    // Add new conversation to UI
-    console.log('New conversation created:', response);
-    const conversationList = document.getElementsByClassName('conversation-list')[0];
-    const conversationItem = document.createElement('div');
-    conversationItem.classList.add('conversation-item');
-    const partnerUsernames = response.usernames.filter(uname => uname !== username);
-    conversationItem.textContent = `${partnerUsernames.join(', ')}`;
-    conversationItem.dataset.conversationId = response.conversationId;
-    conversationItem.onclick = () => handleConversationClick(response.conversationId);
-    conversationList.appendChild(conversationItem);
-
-    // Automatically select the new conversation
-    handleConversationClick(response.conversationId);
+    conversationsCache.push({ // Add to cache
+      conversationId: response.conversationId,
+      userIds: response.userIds,
+      usernames: response.usernames,
+      createdAt: response.createdAt,
+      latestMessageTimestamp: response.latestMessageTimestamp
+    });
+    const sortedConversations = sortConversationsChronologically(conversationsCache);
+    renderConversationList(sortedConversations);
+    handleConversationClick(response.conversationId); // Automatically select the new conversation
   }
 
 
@@ -149,7 +158,8 @@ function handleMessage(event) {
 
 
   if (response.type === 'update-conversation-list') {
-    sortedConversations = sortConversationsChronologically(response.conversations);
+    conversationsCache = response.conversations; // Cache the full list
+    sortedConversations = sortConversationsChronologically(conversationsCache);
     renderConversationList(sortedConversations);
   }
 
