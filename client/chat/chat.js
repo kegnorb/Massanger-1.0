@@ -7,6 +7,8 @@ let conversationsCache = []; // Stores all conversation objects
 let ws;
 let refreshTimer; 
 let tokenRefreshInProgress = false;
+let messagesLoaded = 0;
+let allMessagesLoaded = false;
 var newMessageContent;
 
 const messageDisplay = document.getElementsByClassName('message-display')[0];
@@ -74,7 +76,20 @@ function handleMessage(event) {
   if (response.type === 'conversation-history' && response.conversationId === currentConversationId) {
     // Only use sort if messages are not guaranteed to be in order
     const sortedMessages = response.messages; //.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    renderInitialConversationHistory(sortedMessages);
+    
+    if (messageDisplay.innerHTML === '') { // Distinguish initial load vs. loading older messages
+      renderNewestMessages(sortedMessages); // Initial load of conversation history
+    } else {
+      renderOlderMessages(sortedMessages); // Prepend older messages to already loaded history
+    }
+
+    messagesLoaded += sortedMessages.length; // Track offset for next fetch
+    allMessagesLoaded = !response.hasMoreMessages;
+
+    // If message display is not yet scrollable and more messages exist, request more to fill the view
+    if (!isMessageDisplayScrollable() && !allMessagesLoaded) {
+      getConversationHistory(currentConversationId, messagesLoaded, 20);
+    }
   }
 
 
@@ -86,7 +101,7 @@ function handleMessage(event) {
     if (!exists) {
       return console.warn('[WARN] Received message for unknown conversationId:', response.conversationId);
     }
-    
+
     // Find the conversation in the cache and update its latestMessageTimestamp
     const i = conversationsCache.findIndex(c => c.conversationId === response.conversationId);
     if (i !== -1) {
@@ -274,15 +289,31 @@ function startConversationWith(user) {
 
 
 
-function handleConversationClick(conversationId) {
-  currentConversationId = conversationId;
-  console.log('Selected conversation:', currentConversationId);
-  
-  // Request conversation history from the server
+function getConversationHistory(conversationId, offset = 0, limit = 20) {
   ws.send(JSON.stringify({
     type: 'get-conversation-history',
-    conversationId: currentConversationId
+    conversationId,
+    offset,
+    limit
   }));
+}
+
+
+
+// Open a conversation when clicked in the conversation list
+function handleConversationClick(conversationId) {
+  if (conversationId === currentConversationId) return;
+
+  messageDisplay.innerHTML = ''; // Clear message display area
+
+  // Reset conversation history tracking variables
+  messagesLoaded = 0;
+  allMessagesLoaded = false;
+
+  currentConversationId = conversationId;
+  console.log('Selected conversation:', currentConversationId);
+
+  getConversationHistory(currentConversationId);
 }
 
 
@@ -301,11 +332,29 @@ function createMessageItem(message) {
 
 
 
-function renderInitialConversationHistory(messages) {
+function renderNewestMessages(messages) {
   messageDisplay.innerHTML = ''; // Clear previous messages if any
   messages.forEach(message => {
     messageDisplay.appendChild(createMessageItem(message));
   });
+
+  scrollMessageDisplayToBottom();
+}
+
+
+
+function renderOlderMessages(messages) {
+  // Store scroll position and height before rendering
+  const prevScrollHeight = messageDisplay.scrollHeight;
+  const prevScrollTop = messageDisplay.scrollTop;
+  
+  messages.reverse().forEach(message => { // messages should be in reverse chronological order for prepending
+    messageDisplay.insertBefore(createMessageItem(message), messageDisplay.firstChild);
+  });
+
+  // Adjust scroll position to keep message display view stable
+  const newScrollHeight = messageDisplay.scrollHeight;
+  messageDisplay.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight);
 }
 
 
@@ -313,6 +362,26 @@ function renderInitialConversationHistory(messages) {
 function appendMessage(message) {
   messageDisplay.appendChild(createMessageItem(message));
 }
+
+
+
+function isMessageDisplayScrollable() {
+  return messageDisplay.scrollHeight > messageDisplay.clientHeight;
+}
+
+
+
+function scrollMessageDisplayToBottom() {
+  messageDisplay.scrollTop = messageDisplay.scrollHeight;
+}
+
+
+
+messageDisplay.onscroll = function() {
+  if (messageDisplay.scrollTop === 0 && !allMessagesLoaded) {
+    getConversationHistory(currentConversationId, messagesLoaded, 20);
+  }
+};
 
 
 

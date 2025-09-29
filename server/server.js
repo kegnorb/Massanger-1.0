@@ -389,17 +389,27 @@ wss.on('connection', (ws, req) => {
 
     if (payload.type === 'get-conversation-history' && ws.userId && payload.conversationId) {
       const query = { conversationId: payload.conversationId }; // Query all messages for this conversation
-      // Add .limit(n) and .sort({ timestamp: -1 }) here later for lazy loading
-      const messagesArray = await messages.find(query)./* sort({ timestamp: -1 }).limit(50). */toArray();
-      // messagesArray.reverse(); // To get chronological order
-        
+     
+      const offset = (typeof payload.offset === 'number') ? payload.offset : 0; // Default offset 0
+      const limit = (typeof payload.limit === 'number') ? payload.limit : 20; // Default limit 20
+
+      const messagesArray = await messages.find(query)
+        .sort({ timestamp: -1 }) // newest first
+        .skip(offset)
+        .limit(limit)
+        .toArray();
+
+      const totalCount = await messages.countDocuments(query);
+      const hasMoreMessages = (offset + limit) < totalCount;
+
       // Sort by timestamp ascending (chronological order) only used if not using .sort() in the query above
       messagesArray.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
       ws.send(JSON.stringify({
         type: 'conversation-history',
         conversationId: payload.conversationId,
-        messages: messagesArray
+        messages: messagesArray,
+        hasMoreMessages
       }));
       return;
     }
