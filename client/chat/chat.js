@@ -9,6 +9,9 @@ let refreshTimer;
 let tokenRefreshInProgress = false;
 let messagesLoaded = 0;
 let allMessagesLoaded = false;
+let messagePayloadQueue = []; // FIFO for messages to cache them in case of connection issues
+let pendingMessagePayload = null; // To store the currently sending message payload
+let isSendingMessagePayload = false;
 var newMessageContent;
 
 const messageDisplay = document.getElementsByClassName('message-display')[0];
@@ -18,6 +21,7 @@ const messageDisplay = document.getElementsByClassName('message-display')[0];
 function handleOpen() {
   console.log('WebSocket connection established. Authenticating...');
   // Authentication will be handled via cookies automatically sent by the browser
+  trySendMessagePayloadFromQueue(); // Attempt to send any queued messages
 }
 
 
@@ -116,7 +120,16 @@ function handleMessage(event) {
       return; // Ignore messages for other conversations
     }
 
+    // TODO: remove pending message if rendered while connection was lost
+
     appendMessage(response);
+
+    // TODO: Check if the sent back message is the same as the one in pendingMessagePayload
+    // Only if so, clear pendingMessagePayload and isSendingMessagePayload to allow next message to be sent
+
+    pendingMessagePayload = null; // Clear pendingMessagePayload on server echo
+    isSendingMessagePayload = false; // Allow sending next message in queue
+    trySendMessagePayloadFromQueue(); // Attempt to send next message if any
   }
 
 
@@ -238,18 +251,12 @@ function executeSend() {
     return;
   }
 
-  if (ws.readyState !== WebSocket.OPEN) {
-    alert('Connection lost. Please wait while reconnecting...');
-    // Later reconnection might be triggered here
-    return;
-  }
-
-  newMessageContent = document.getElementById('messageInput').value;
-
   if (!currentConversationId) {
     alert('No conversation selected.');
     return;
   }
+
+  newMessageContent = document.getElementById('messageInput').value;
 
   const newMessagePayload = createPayload('add-new-message', {
     conversationId: currentConversationId,
@@ -259,12 +266,10 @@ function executeSend() {
     timestamp: new Date().toISOString(),
   });
 
-  const messageJSON = JSON.stringify(newMessagePayload);
+  pushMessagePayloadToQueue(newMessagePayload);
+  trySendMessagePayloadFromQueue();
 
-  console.log('Sending new message to server...');
-  ws.send(messageJSON);
-
-  document.getElementById("messageInput").value = "";
+  document.getElementById("messageInput").value = ""; // Clear input field
 }
 
 
@@ -382,6 +387,49 @@ messageDisplay.onscroll = function() {
     getConversationHistory(currentConversationId, messagesLoaded, 20);
   }
 };
+
+
+
+function pushMessagePayloadToQueue(message) {
+  messagePayloadQueue.push(message);
+}
+
+
+
+function popMessagePayloadFromQueue() {
+  if (messagePayloadQueue.length === 0) return null;
+  
+  return messagePayloadQueue.shift();
+}
+
+
+
+function sendNextMessagePayload() {
+  if (ws.readyState !== WebSocket.OPEN) {
+    isSendingMessagePayload = false;
+    return; // Wait for reconnection
+  }
+
+  if (!pendingMessagePayload) { // check if there is a pending message already sent but not confirmed by server
+    pendingMessagePayload = popMessagePayloadFromQueue(); // Overwrite pendingMessagePayload only if null (cleared on server echo)
+    if (!pendingMessagePayload) { // Check again in case queue got empty
+      isSendingMessagePayload = false;
+      return; // Queue is empty
+    }
+  }
+
+  ws.send(JSON.stringify(pendingMessagePayload));
+  // Wait for server echo before clearing pendingMessagePayload and isSendingMessagePayload -> see handleMessage "new-message"
+}
+
+
+
+function trySendMessagePayloadFromQueue() {
+  console.log('[DBG] messagePayloadQueue length:', messagePayloadQueue.length);
+  if (isSendingMessagePayload || ws.readyState !== WebSocket.OPEN || messagePayloadQueue.length === 0) return;
+  isSendingMessagePayload = true;
+  sendNextMessagePayload();
+}
 
 
 
