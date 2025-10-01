@@ -349,7 +349,7 @@ wss.on('connection', (ws, req) => {
         )
       }));
       return;
-    }
+    } // get-conversation-list
 
 
     if (payload.type === 'add-new-conversation' && Array.isArray(payload.userIds)) {
@@ -384,7 +384,7 @@ wss.on('connection', (ws, req) => {
         createdAt: conversation.createdAt
       }));
       return;
-    }
+    } // add-new-conversation
 
 
     if (payload.type === 'get-conversation-history' && ws.userId && payload.conversationId) {
@@ -412,7 +412,7 @@ wss.on('connection', (ws, req) => {
         hasMoreMessages
       }));
       return;
-    }
+    } // get-conversation-history
 
 
     if (payload.type === 'add-new-message' && ws.userId && payload.conversationId && payload.content) {
@@ -429,6 +429,7 @@ wss.on('connection', (ws, req) => {
         sender: ws.username,
         content: payload.content,
         timestamp: new Date(),
+        clientMessageId: payload.clientMessageId || null // Echo back clientMessageId if provided by client
         // Add more metadata if needed
       };
     
@@ -452,7 +453,7 @@ wss.on('connection', (ws, req) => {
       }
     
       return;
-    }
+    } // add-new-message
     
 
     if (payload.type === 'search-users' && typeof payload.query === 'string') {
@@ -472,7 +473,7 @@ wss.on('connection', (ws, req) => {
         .filter(u => u.username !== ws.username); // Exclude current user from results
       ws.send(JSON.stringify({ type: 'search-results', users: filtered }));
       return;
-    }
+    } // search-users
     // ...other types
   }); //ws.on('message')
 

@@ -127,10 +127,14 @@ function handleMessage(event) {
     // TODO: Check if the sent back message is the same as the one in pendingMessagePayload
     // Only if so, clear pendingMessagePayload and isSendingMessagePayload to allow next message to be sent
 
-    pendingMessagePayload = null; // Clear pendingMessagePayload on server echo
-    isSendingMessagePayload = false; // Allow sending next message in queue
-    trySendMessagePayloadFromQueue(); // Attempt to send next message if any
-  }
+    if (pendingMessagePayload && response.sender === username &&
+        response.clientMessageId === pendingMessagePayload.clientMessageId) {
+      // This is the echo of the message we just sent
+      pendingMessagePayload = null; // Clear pendingMessagePayload on server echo
+      isSendingMessagePayload = false; // Allow sending next message in queue
+      trySendMessagePayloadFromQueue(); // Attempt to send next message if any
+    }
+  } // new-message
 
 
   if (response.type === 'search-results') {
@@ -264,6 +268,7 @@ function executeSend() {
     senderId: currentUserId,
     content: newMessageContent,
     timestamp: new Date().toISOString(),
+    clientMessageId: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Unique client-side ID
   });
 
   pushMessagePayloadToQueue(newMessagePayload);
