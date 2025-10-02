@@ -340,11 +340,15 @@ function createMessageItem(message) {
     messageItem.classList.add('message-item-partner');
   }
   messageItem.textContent = `[${message.timestamp}] ${message.sender}: ${message.content}`;
+  messageItem.dataset.timestamp = message.timestamp; // For client-side sort tracking
+  messageItem.dataset.clientMessageId = message.clientMessageId;
+
   return messageItem;
 }
 
 
 
+// For rendering messages when conversation is first loaded
 function renderNewestMessages(messages) {
   messageDisplay.innerHTML = ''; // Clear previous messages if any
   messages.forEach(message => {
@@ -356,6 +360,7 @@ function renderNewestMessages(messages) {
 
 
 
+// For rendering older messages when scrolling up or view is not yet filled
 function renderOlderMessages(messages) {
   // Store scroll position and height before rendering
   const prevScrollHeight = messageDisplay.scrollHeight;
@@ -441,13 +446,31 @@ function trySendMessagePayloadFromQueue() {
 
 
 
+// For rendering a single new message (for real-time updates)
 function renderNewMessage(message) {
   if (message.clientMessageId && renderedMessageIds.has(message.clientMessageId)) {
     return; // Already rendered
   }
 
-  appendMessage(message);
-  scrollMessageDisplayToBottom();
+  const newMessageTimestamp = new Date(message.timestamp).getTime();
+  let inserted = false;
+
+  // Find the correct position to insert in case it's not the newest message (arrived out of order)
+  for (let i = 0; i < messageDisplay.childNodes.length; i++) {
+    const messageItemNode = messageDisplay.childNodes[i];
+    const messageItemNodeTimestamp = new Date(messageItemNode.dataset.timestamp).getTime();
+    if (newMessageTimestamp < messageItemNodeTimestamp) { // Insert before the first newer message hit
+      let newMessageItem = createMessageItem(message);
+      messageDisplay.insertBefore(newMessageItem, messageItemNode);
+      inserted = true;
+      break;
+    }
+  }
+
+  if (!inserted) { // If no insertion happened, its the newest message
+    appendMessage(message);
+    scrollMessageDisplayToBottom();
+  }
   
   if (message.clientMessageId) {
     renderedMessageIds.add(message.clientMessageId);
