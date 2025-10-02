@@ -15,6 +15,7 @@ let isSendingMessagePayload = false;
 var newMessageContent;
 
 const messageDisplay = document.getElementsByClassName('message-display')[0];
+const renderedMessageIds = new Set(); // To track rendered message IDs and avoid duplicates
 
 
 
@@ -122,7 +123,7 @@ function handleMessage(event) {
 
     // TODO: remove pending message if rendered while connection was lost
 
-    appendMessage(response);
+    renderNewMessage(response);
 
     // TODO: Check if the sent back message is the same as the one in pendingMessagePayload
     // Only if so, clear pendingMessagePayload and isSendingMessagePayload to allow next message to be sent
@@ -316,6 +317,8 @@ function handleConversationClick(conversationId) {
 
   messageDisplay.innerHTML = ''; // Clear message display area
 
+  renderedMessageIds.clear(); // Clear rendered message IDs
+
   // Reset conversation history tracking variables
   messagesLoaded = 0;
   allMessagesLoaded = false;
@@ -434,6 +437,21 @@ function trySendMessagePayloadFromQueue() {
   if (isSendingMessagePayload || ws.readyState !== WebSocket.OPEN || messagePayloadQueue.length === 0) return;
   isSendingMessagePayload = true;
   sendNextMessagePayload();
+}
+
+
+
+function renderNewMessage(message) {
+  if (message.clientMessageId && renderedMessageIds.has(message.clientMessageId)) {
+    return; // Already rendered
+  }
+
+  appendMessage(message);
+  scrollMessageDisplayToBottom();
+  
+  if (message.clientMessageId) {
+    renderedMessageIds.add(message.clientMessageId);
+  }
 }
 
 

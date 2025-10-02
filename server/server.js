@@ -31,12 +31,16 @@ const userConnections = new Map(); // userId -> Set of ws connections
 
 // --- Async initializations ---
 const mongoPromise = MongoClient.connect(MONGO_URI)
-  .then(client => {
+  .then(async client => {
     db = client.db(DB_NAME);
     users = db.collection('users');
     conversations = db.collection('conversations');
     messages = db.collection('messages');
     console.log('MongoDB connected and collections are ready');
+
+    // Create indexes for efficient queries
+    await messages.createIndex({ conversationId: 1, clientMessageId: 1 }, { unique: true, sparse: true });
+
   })
   .catch(err => {
     console.error('MongoDB connection failed:', err);
@@ -416,6 +420,12 @@ wss.on('connection', (ws, req) => {
 
 
     if (payload.type === 'add-new-message' && ws.userId && payload.conversationId && payload.content) {
+
+      if (!payload.clientMessageId || typeof payload.clientMessageId !== 'string') {
+        ws.send(JSON.stringify({ type: 'error', message: 'Missing or invalid clientMessageId.' }));
+        return;
+      }
+      
       const conversation = await conversations.findOne({ _id: ObjectId.createFromHexString(payload.conversationId) });
       
       if (!conversation) {
@@ -433,21 +443,34 @@ wss.on('connection', (ws, req) => {
         // Add more metadata if needed
       };
     
-      // Insert the message into the messages collection
-      await messages.insertOne(message);
+      // Deduplication: check for existing message with same clientMessageId
+      let existingMessage = null;
+      if (message.clientMessageId) {
+        existingMessage = await messages.findOne({
+          conversationId: message.conversationId,
+          clientMessageId: message.clientMessageId
+        });
+      }
+
+      if (!existingMessage) {
+        // Insert the message into the messages collection
+        await messages.insertOne(message);
     
-      // Update the latestMessageTimestamp in the conversation
-      await conversations.updateOne(
-        { _id: ObjectId.createFromHexString(payload.conversationId) },
-        { $set: { latestMessageTimestamp: message.timestamp } }
-      );
+        // Update the latestMessageTimestamp in the conversation
+        await conversations.updateOne(
+          { _id: ObjectId.createFromHexString(payload.conversationId) },
+          { $set: { latestMessageTimestamp: message.timestamp } }
+        );
+      }
+
+      messageToBroadcast = existingMessage || message;
     
       // Broadcast the new message to every participants' every connections including the sender too
       for (const recipientId of conversation.userIds) {
         const connections = userConnections.get(recipientId);
         if (connections) {
           for (const recipientWs of connections) {
-            recipientWs.send(JSON.stringify({ type: 'new-message', ...message }));
+            recipientWs.send(JSON.stringify({ type: 'new-message', ...messageToBroadcast }));
           }
         }
       }
