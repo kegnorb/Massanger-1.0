@@ -12,6 +12,7 @@ let allMessagesLoaded = false;
 let messagePayloadQueue = []; // FIFO for messages to cache them in case of connection issues
 let pendingMessagePayload = null; // To store the currently sending message payload
 let isSendingMessagePayload = false;
+let reconnectAttempts = 0;
 var newMessageContent;
 
 const messageDisplay = document.getElementsByClassName('message-display')[0];
@@ -22,6 +23,8 @@ const renderedMessageIds = new Set(); // To track rendered message IDs and avoid
 function handleOpen() {
   console.log('WebSocket connection established. Authenticating...');
   // Authentication will be handled via cookies automatically sent by the browser
+  hideNoConnectionWarning();
+  reconnectAttempts = 0; // Reset on successful connection
   trySendMessagePayloadFromQueue(); // Attempt to send any queued messages
 }
 
@@ -202,9 +205,10 @@ function handleClose(event) {
     console.log('Logout completed successfully.');
     window.location.href = '../user/login.html';
   } else {
-    alert('WebSocket connection closed. Please log in again.');
-    window.location.href = '../user/login.html';
-  }
+    console.log('WebSocket connection closed unexpectedly.');
+    showNoConnectionWarning();
+    attemptReconnect();
+  }     
 }
 
 
@@ -475,6 +479,30 @@ function renderNewMessage(message) {
   if (message.clientMessageId) {
     renderedMessageIds.add(message.clientMessageId);
   }
+}
+
+
+
+function showNoConnectionWarning() {
+  const warning = document.getElementById('noConnectionWarning');
+  warning.style.display = 'block';
+}
+
+
+
+function hideNoConnectionWarning() {
+  const warning = document.getElementById('noConnectionWarning');
+  warning.style.display = 'none';
+}
+
+
+
+function attemptReconnect() {
+  const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Exponential backoff, max 30s
+  setTimeout(() => {
+    reconnectAttempts++;
+    initWebSocket();
+  }, delay);
 }
 
 
