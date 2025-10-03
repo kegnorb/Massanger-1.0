@@ -181,6 +181,26 @@ function handleMessage(event) {
     renderConversationList(sortedConversations);
   }
 
+
+  if (response.type === 'error') {
+    if (response.errCode === 'db_msg_insert_fail') {
+      console.log('Failed to send message due to server error. Please try again.');
+      return;
+    }
+
+    if (response.errCode === 'missing_clientMessageId') {
+      console.log('Missing clientMessageId. Please try again.');
+      return;
+    }
+
+    if (response.errCode === 'db_conversation_not_found') {
+      console.log('Conversation not found. Please try again.');
+      return;
+    }
+
+    console.log('Unknown server error:', response);
+  } // error
+
   // ...handle other response types for status updates, or errors, etc.
 }// handleMessage
 

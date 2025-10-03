@@ -422,14 +422,14 @@ wss.on('connection', (ws, req) => {
     if (payload.type === 'add-new-message' && ws.userId && payload.conversationId && payload.content) {
 
       if (!payload.clientMessageId || typeof payload.clientMessageId !== 'string') {
-        ws.send(JSON.stringify({ type: 'error', message: 'Missing or invalid clientMessageId.' }));
+        ws.send(JSON.stringify({ type: 'error', errCode: 'missing_clientMessageId' }));
         return;
       }
       
       const conversation = await conversations.findOne({ _id: ObjectId.createFromHexString(payload.conversationId) });
       
       if (!conversation) {
-        ws.send(JSON.stringify({ type: 'error', message: 'Conversation not found.' }));
+        ws.send(JSON.stringify({ type: 'error', errCode: 'conversation_not_found' }));
         return;
       }
 
@@ -453,14 +453,20 @@ wss.on('connection', (ws, req) => {
       }
 
       if (!existingMessage) {
-        // Insert the message into the messages collection
-        await messages.insertOne(message);
-    
-        // Update the latestMessageTimestamp in the conversation
-        await conversations.updateOne(
-          { _id: ObjectId.createFromHexString(payload.conversationId) },
-          { $set: { latestMessageTimestamp: message.timestamp } }
-        );
+        try {
+          // Insert the message into the messages collection
+          await messages.insertOne(message);
+          
+          // Update the latestMessageTimestamp in the conversation
+          await conversations.updateOne(
+            { _id: ObjectId.createFromHexString(payload.conversationId) },
+            { $set: { latestMessageTimestamp: message.timestamp } }
+          );
+        } catch (err) {
+          console.error('MongoDB fail - error inserting message:', err);
+          ws.send(JSON.stringify({ type: 'error', errCode: 'db_msg_insert_fail' }));
+          return;
+        }
       }
 
       messageToBroadcast = existingMessage || message;
