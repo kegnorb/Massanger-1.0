@@ -374,7 +374,7 @@ wss.on('connection', (ws, req) => {
       // Create new conversation
       const conversation = {
         userIds: participants,
-        createdAt: new Date()
+        createdAt: Date.now()
       };
       const result = await conversations.insertOne(conversation);
 
@@ -407,7 +407,7 @@ wss.on('connection', (ws, req) => {
       const hasMoreMessages = (offset + limit) < totalCount;
 
       // Sort by timestamp ascending (chronological order) only used if not using .sort() in the query above
-      messagesArray.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      messagesArray.sort((a, b) => a.timestamp - b.timestamp);
 
       ws.send(JSON.stringify({
         type: 'conversation-history',
@@ -438,7 +438,7 @@ wss.on('connection', (ws, req) => {
         senderId: ws.userId,
         sender: ws.username,
         content: payload.content,
-        timestamp: new Date(),
+        timestamp: Date.now(),
         clientMessageId: payload.clientMessageId || null // Echo back clientMessageId if provided by client
         // Add more metadata if needed
       };

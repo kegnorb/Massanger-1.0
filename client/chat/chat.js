@@ -83,7 +83,7 @@ function handleMessage(event) {
 
   if (response.type === 'conversation-history' && response.conversationId === currentConversationId) {
     // Only use sort if messages are not guaranteed to be in order
-    const sortedMessages = response.messages; //.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    const sortedMessages = response.messages; //.sort((a, b) => a.timestamp - b.timestamp);
     
     if (messageDisplay.innerHTML === '') { // Distinguish initial load vs. loading older messages
       renderNewestMessages(sortedMessages); // Initial load of conversation history
@@ -227,6 +227,7 @@ function handleClose(event) {
   } else {
     console.log('WebSocket connection closed unexpectedly.');
     showNoConnectionWarning();
+    // TODO: handle UI state to indicate disconnection (manual reconnect button?)
     attemptReconnect();
   }     
 }
@@ -235,6 +236,7 @@ function handleClose(event) {
 
 function initWebSocket() {
   ws = new WebSocket('ws://localhost:8081');
+  window.ws = ws; // Store reference to ws in the global window object
   ws.onopen = handleOpen;
   ws.onmessage = handleMessage;
   ws.onclose = handleClose;
@@ -243,7 +245,7 @@ function initWebSocket() {
 
 
 function sortConversationsChronologically(conversations) {
-  return [...conversations].sort((a, b) => new Date(b.latestMessageTimestamp) - new Date(a.latestMessageTimestamp));
+  return [...conversations].sort((a, b) => b.latestMessageTimestamp - a.latestMessageTimestamp);
 }
 
 
@@ -292,7 +294,7 @@ function executeSend() {
     sender: username,
     senderId: currentUserId,
     content: newMessageContent,
-    timestamp: new Date().toISOString(),
+    timestamp: Date.now(),
     clientMessageId: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Unique client-side ID
   });
 
@@ -363,7 +365,10 @@ function createMessageItem(message) {
   } else {
     messageItem.classList.add('message-item-partner');
   }
-  messageItem.textContent = `[${message.timestamp}] ${message.sender}: ${message.content}`;
+
+  const dateAndTime = new Date(message.timestamp);
+
+  messageItem.textContent = `[${dateAndTime.toLocaleString()}] ${message.sender}: ${message.content}`;
   messageItem.dataset.timestamp = message.timestamp; // For client-side sort tracking
   messageItem.dataset.clientMessageId = message.clientMessageId;
 
@@ -476,13 +481,13 @@ function renderNewMessage(message) {
     return; // Already rendered
   }
 
-  const newMessageTimestamp = new Date(message.timestamp).getTime();
+  const newMessageTimestamp = message.timestamp;
   let inserted = false;
 
   // Find the correct position to insert in case it's not the newest message (arrived out of order)
   for (let i = 0; i < messageDisplay.childNodes.length; i++) {
     const messageItemNode = messageDisplay.childNodes[i];
-    const messageItemNodeTimestamp = new Date(messageItemNode.dataset.timestamp).getTime();
+    const messageItemNodeTimestamp = Number(messageItemNode.dataset.timestamp);
     if (newMessageTimestamp < messageItemNodeTimestamp) { // Insert before the first newer message hit
       let newMessageItem = createMessageItem(message);
       messageDisplay.insertBefore(newMessageItem, messageItemNode);
