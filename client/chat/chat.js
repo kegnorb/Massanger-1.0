@@ -124,20 +124,32 @@ function handleMessage(event) {
       return; // Ignore messages for other conversations
     }
 
-    // TODO: remove pending message if rendered while connection was lost
+   
 
-    renderNewMessage(response);
-
-    // TODO: Check if the sent back message is the same as the one in pendingMessagePayload
-    // Only if so, clear pendingMessagePayload and isSendingMessagePayload to allow next message to be sent
-
-    if (pendingMessagePayload && response.sender === username &&
+     if (pendingMessagePayload && response.sender === username &&
         response.clientMessageId === pendingMessagePayload.clientMessageId) {
       // This is the echo of the message we just sent
+
+      // Remove the pending message DOM node
+      const nodes = messageDisplay.getElementsByClassName('message-item');
+      for (let node of nodes) {
+        if (node.dataset.clientMessageId === response.clientMessageId) {
+          messageDisplay.removeChild(node);
+          renderedMessageIds.delete(response.clientMessageId);
+          break;
+        }
+      }
+
+      renderNewMessage(response);
+
       pendingMessagePayload = null; // Clear pendingMessagePayload on server echo
       isSendingMessagePayload = false; // Allow sending next message in queue
       trySendMessagePayloadFromQueue(); // Attempt to send next message if any
+
+      return;
     }
+
+    renderNewMessage(response);
   } // new-message
 
 
@@ -295,10 +307,12 @@ function executeSend() {
     senderId: currentUserId,
     content: newMessageContent,
     timestamp: Date.now(),
+    state: 'pending',
     clientMessageId: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Unique client-side ID
   });
 
   pushMessagePayloadToQueue(newMessagePayload);
+  appendMessage(newMessagePayload); // Render message as pending
   trySendMessagePayloadFromQueue();
 
   document.getElementById("messageInput").value = ""; // Clear input field
@@ -368,7 +382,7 @@ function createMessageItem(message) {
 
   const dateAndTime = new Date(message.timestamp);
 
-  messageItem.textContent = `[${dateAndTime.toLocaleString()}] ${message.sender}: ${message.content}`;
+  messageItem.textContent = `[${dateAndTime.toLocaleString()}] ${message.sender}: ${message.content} [${message.state}]`;
   messageItem.dataset.timestamp = message.timestamp; // For client-side sort tracking
   messageItem.dataset.clientMessageId = message.clientMessageId;
 

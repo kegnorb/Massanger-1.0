@@ -439,6 +439,7 @@ wss.on('connection', (ws, req) => {
         sender: ws.username,
         content: payload.content,
         timestamp: Date.now(),
+        state: payload.state || 'pending', // Will be updated to 'sent' right before db insertion
         clientMessageId: payload.clientMessageId || null // Echo back clientMessageId if provided by client
         // Add more metadata if needed
       };
@@ -454,6 +455,7 @@ wss.on('connection', (ws, req) => {
 
       if (!existingMessage) {
         try {
+          message.state = 'sent'; // Update state from 'pending' to 'sent'
           // Insert the message into the messages collection
           await messages.insertOne(message);
           
